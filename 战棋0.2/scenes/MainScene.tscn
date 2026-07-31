@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://bow3224euh4lf"]
+
+[ext_resource type="Script" uid="uid://bifl0bi2prl6q" path="res://scripts/MainScene.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://7cfeds0idp7t" path="res://scripts/ui/HexGridRenderer.gd" id="2_tile"]
+[ext_resource type="Script" uid="uid://chg58dcsqtccq" path="res://scripts/ui/UnitRenderer.gd" id="3_unit"]
+[ext_resource type="Script" uid="uid://brf04qosns2uc" path="res://scripts/ui/CardUI.gd" id="4_card"]
+
+[node name="MainScene" type="Node2D" unique_id=951679098]
+texture_filter = 1
+script = ExtResource("1_main")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=2063812524]
+position = Vector2(960, 540)
+
+[node name="TileGridRenderer" type="Node2D" parent="." unique_id=124114763]
+script = ExtResource("2_tile")
+
+[node name="UnitRenderer" type="Node2D" parent="." unique_id=1762196762]
+script = ExtResource("3_unit")
+
+[node name="CardUI" type="Control" parent="." unique_id=1579253202]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_card")

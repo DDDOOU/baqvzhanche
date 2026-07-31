@@ -1,0 +1,33 @@
+# Git ignore file for Godot 4.7.1 project
+# Silent Reckoning·1987
+
+# Godot-specific
+.godot/
+*.import
+*.translation
+export/
+export_presets.cfg
+
+# User data
+user://
+*.log
+
+# Build artifacts
+.debug/
+.release/
+
+# OS generated
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Godot temporary files
+*.tmp
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
