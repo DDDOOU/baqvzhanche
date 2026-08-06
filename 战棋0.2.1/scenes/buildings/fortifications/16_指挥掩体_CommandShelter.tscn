@@ -1,0 +1,6 @@
+﻿[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_2x2.tscn" id="1"]
+[node name="强化指挥掩体_CommandShelter" instance=ExtResource("1")]
+building_index = 16
+building_name = "强化指挥掩体 / Command Shelter"
+visual_scale = Vector2(1, 1)

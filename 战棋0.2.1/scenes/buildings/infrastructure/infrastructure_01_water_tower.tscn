@@ -1,0 +1,6 @@
+﻿[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_2x2.tscn" id="1"]
+[node name="军用水塔_WaterTower" instance=ExtResource("1")]
+building_category = 1
+building_name = "军用水塔 / Water Tower"
+visual_scale = Vector2(1, 1)
