@@ -1,0 +1,242 @@
+extends Control
+
+const MAIN_SCENE: PackedScene = preload("res://scenes/MainScene.tscn")
+const COVER_TEXTURE: Texture2D = preload("res://封面图.png")
+
+var start_panel: VBoxContainer
+var level_panel: VBoxContainer
+var level_grid: GridContainer
+var menu_font: SystemFont
+var cover_background: TextureRect
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	_build_font()
+	_build_background()
+	_build_start_panel()
+	_build_level_panel()
+	_show_start_panel()
+	get_viewport().size_changed.connect(_fit_cover_background)
+	_fit_cover_background.call_deferred()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F11 or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
+			_toggle_fullscreen()
+			get_viewport().set_input_as_handled()
+
+
+func _build_font() -> void:
+	menu_font = SystemFont.new()
+	menu_font.font_names = PackedStringArray([
+		"Microsoft YaHei UI",
+		"Microsoft YaHei",
+		"Noto Sans CJK SC",
+		"Arial"
+	])
+	menu_font.font_weight = 700
+
+
+func _build_background() -> void:
+	cover_background = TextureRect.new()
+	cover_background.name = "CoverBackground"
+	cover_background.texture = COVER_TEXTURE
+	cover_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cover_background.stretch_mode = TextureRect.STRETCH_SCALE
+	cover_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cover_background.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(cover_background)
+
+	var shade := ColorRect.new()
+	shade.name = "ReadabilityShade"
+	shade.color = Color(0.0, 0.0, 0.0, 0.18)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(shade)
+
+
+func _fit_cover_background() -> void:
+	if cover_background == null or COVER_TEXTURE == null:
+		return
+
+	var viewport_size := get_viewport_rect().size
+	var texture_size := COVER_TEXTURE.get_size()
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+
+	var scale_factor: float = min(viewport_size.x / texture_size.x, viewport_size.y / texture_size.y)
+	var fitted_size := texture_size * scale_factor
+	cover_background.position = (viewport_size - fitted_size) * 0.5
+	cover_background.size = fitted_size
+
+
+func _build_start_panel() -> void:
+	start_panel = VBoxContainer.new()
+	start_panel.name = "StartPanel"
+	start_panel.alignment = BoxContainer.ALIGNMENT_CENTER
+	start_panel.add_theme_constant_override("separation", 14)
+	_anchor_menu_panel(start_panel, 0.64, 0.91, 360)
+	add_child(start_panel)
+
+	var start_button := _make_menu_button("开始游戏")
+	start_button.pressed.connect(func() -> void:
+		_start_level(0)
+	)
+	start_panel.add_child(start_button)
+
+	var select_button := _make_menu_button("关卡选择")
+	select_button.pressed.connect(_show_level_panel)
+	start_panel.add_child(select_button)
+
+	var quit_button := _make_menu_button("退出游戏")
+	quit_button.pressed.connect(func() -> void:
+		get_tree().quit()
+	)
+	start_panel.add_child(quit_button)
+
+
+func _build_level_panel() -> void:
+	level_panel = VBoxContainer.new()
+	level_panel.name = "LevelPanel"
+	level_panel.alignment = BoxContainer.ALIGNMENT_CENTER
+	level_panel.add_theme_constant_override("separation", 12)
+	_anchor_menu_panel(level_panel, 0.58, 0.93, 560)
+	add_child(level_panel)
+
+	var title := Label.new()
+	title.text = "关卡选择"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", menu_font)
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
+	level_panel.add_child(title)
+
+	level_grid = GridContainer.new()
+	level_grid.name = "LevelGrid"
+	level_grid.columns = 2
+	level_grid.add_theme_constant_override("h_separation", 12)
+	level_grid.add_theme_constant_override("v_separation", 10)
+	level_panel.add_child(level_grid)
+	_fill_level_buttons()
+
+	var back_button := _make_menu_button("返回", 260)
+	back_button.pressed.connect(_show_start_panel)
+	level_panel.add_child(back_button)
+
+
+func _fill_level_buttons() -> void:
+	var level_count: int = max(LevelDatabase.get_level_count(), 1)
+	var has_available_level := false
+
+	for level_id in range(level_count):
+		var scene_path := "res://scenes/levels/level_%02d.tscn" % (level_id + 1)
+		if not ResourceLoader.exists(scene_path):
+			continue
+
+		has_available_level = true
+		var level_name := "第%d关" % (level_id + 1)
+		var level_data = LevelDatabase.get_level(level_id)
+		if level_data != null and not String(level_data.level_name).is_empty():
+			level_name = "第%d关  %s" % [level_id + 1, level_data.level_name]
+
+		var selected_level_id := level_id
+		var level_button := _make_menu_button(level_name, 260)
+		level_button.pressed.connect(func() -> void:
+			_start_level(selected_level_id)
+		)
+		level_grid.add_child(level_button)
+
+	if not has_available_level:
+		var disabled_button := _make_menu_button("暂无可用关卡", 260)
+		disabled_button.disabled = true
+		level_grid.add_child(disabled_button)
+
+
+func _make_menu_button(text: String, width: float = 320.0) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(width, 54)
+	button.focus_mode = Control.FOCUS_ALL
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.add_theme_font_override("font", menu_font)
+	button.add_theme_font_size_override("font_size", 24)
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_color_override("font_focus_color", Color.WHITE)
+	button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.55))
+	button.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	button.add_theme_constant_override("outline_size", 3)
+	button.add_theme_stylebox_override("normal", _make_button_style(Color(0.04, 0.04, 0.04, 0.62), Color(0.72, 0.12, 0.12, 0.88)))
+	button.add_theme_stylebox_override("hover", _make_button_style(Color(0.16, 0.03, 0.03, 0.78), Color(0.95, 0.24, 0.18, 1.0)))
+	button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.3, 0.04, 0.03, 0.85), Color(1.0, 0.32, 0.22, 1.0)))
+	button.add_theme_stylebox_override("focus", _make_button_style(Color(0.12, 0.02, 0.02, 0.78), Color(1.0, 0.86, 0.55, 1.0)))
+	button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.04, 0.04, 0.04, 0.42), Color(0.5, 0.5, 0.5, 0.5)))
+	return button
+
+
+func _make_button_style(fill: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+func _anchor_menu_panel(panel: Control, top: float, bottom: float, width: float) -> void:
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = top
+	panel.anchor_bottom = bottom
+	panel.offset_left = -width * 0.5
+	panel.offset_right = width * 0.5
+	panel.offset_top = 0
+	panel.offset_bottom = 0
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+func _show_start_panel() -> void:
+	start_panel.visible = true
+	level_panel.visible = false
+
+
+func _show_level_panel() -> void:
+	start_panel.visible = false
+	level_panel.visible = true
+
+
+func _start_level(level_id: int) -> void:
+	var next_scene := MAIN_SCENE.instantiate()
+	next_scene.startup_level_id = level_id
+	var root := get_tree().root
+	var current := get_tree().current_scene
+	root.add_child(next_scene)
+	get_tree().current_scene = next_scene
+	if current != null:
+		current.queue_free()
+
+
+func _toggle_fullscreen() -> void:
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
