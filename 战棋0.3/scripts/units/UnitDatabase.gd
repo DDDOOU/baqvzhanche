@@ -237,6 +237,11 @@ func generate_unit_id() -> int:
 	return next_unit_id
 
 
+func reset_for_level() -> void:
+	"""保证重开后单位ID可预测，且不携带上一局计数。"""
+	next_unit_id = 1000
+
+
 func create_unit(unit_type: UnitBase.UnitType, faction: UnitBase.Faction,
 		col: int, row: int, parent_node: Node) -> UnitBase:
 	"""工厂方法：创建一个单位实例"""
@@ -282,4 +287,17 @@ func create_unit(unit_type: UnitBase.UnitType, faction: UnitBase.Faction,
 	MoraleSystem.init_unit_morale(unit.unit_id, 75)
 
 	print("[UnitDatabase] 创建单位: %s (ID=%d) at (%d,%d)" % [unit.unit_name, unit.unit_id, col, row])
+	return unit
+
+
+func restore_unit(data: Dictionary, parent_node: Node) -> UnitBase:
+	"""从存档创建并恢复一个单位，同时维护后续ID不重复。"""
+	var unit := create_unit(
+		int(data.get("unit_type", UnitBase.UnitType.INFANTRY_SQUAD)),
+		int(data.get("faction", UnitBase.Faction.WARSAW_PACT)),
+		int(data.get("grid_col", 0)),
+		int(data.get("grid_row", 0)),
+		parent_node)
+	unit.restore(data)
+	next_unit_id = maxi(next_unit_id, unit.unit_id)
 	return unit

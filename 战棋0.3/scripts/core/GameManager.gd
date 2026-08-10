@@ -39,19 +39,41 @@ const EXECUTION_DURATION: float = 30.0
 var runtime_map_data: Dictionary = {}
 var runtime_map_size: Vector2i = Vector2i(40, 45)
 var execution_skip_requested: bool = false
+var pending_save_data: Dictionary = {}
 
 ## === Bug追踪与版本控制 ===
 var bug_tracker: Dictionary = {}     # bug_id -> {description, status, fix_version}
-var version: String = "1.0.0"
-var build_number: int = 1
+var version: String = "0.5.0"
+var build_number: int = 6
 
 
 func _ready() -> void:
+	_ensure_default_input_actions()
 	# 初始化所有子系统
 	_initialize_subsystems()
 	# 设置进程优先级
 	process_priority = 100
 	print("[GameManager] Silent Reckoning·1987 v%s (build %d) 已启动" % [version, build_number])
+
+
+func _ensure_default_input_actions() -> void:
+	"""集中声明代码所需动作，便于后续设置界面重绑定。"""
+	_ensure_key_action("camera_left", KEY_A)
+	_ensure_key_action("camera_right", KEY_D)
+	_ensure_key_action("camera_up", KEY_W)
+	_ensure_key_action("camera_down", KEY_S)
+	_ensure_key_action("pause_game", KEY_P)
+	_ensure_key_action("toggle_fullscreen", KEY_F11)
+
+
+func _ensure_key_action(action: StringName, keycode: Key) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	if not InputMap.action_get_events(action).is_empty():
+		return
+	var key_event := InputEventKey.new()
+	key_event.physical_keycode = keycode
+	InputMap.action_add_event(action, key_event)
 
 
 func _process(delta: float) -> void:
@@ -155,7 +177,7 @@ func _finish_execution() -> void:
 			"victory_tier": "victory" if is_win else "defeat"
 		}
 		BattleLog.add_log("━━━ %s ━━━" % instant.reason, Color.GOLD)
-		VictoryManager._trigger_game_over(instant.winner, instant.reason)
+		VictoryManager.finish_game(instant.winner, instant.reason)
 		level_completed.emit(current_level_id, result)
 		_apply_level_result_and_end(result)
 		return
@@ -167,7 +189,7 @@ func _finish_execution() -> void:
 		level_result["winner_faction"] = winner
 		level_result["turn"] = TurnManager.current_turn
 		BattleLog.add_log("━━━ %s ━━━" % level_result.get("reason", ""), Color.GOLD)
-		VictoryManager._trigger_game_over(winner, level_result.get("reason", ""))
+		VictoryManager.finish_game(winner, level_result.get("reason", ""))
 		level_completed.emit(current_level_id, level_result)
 		_apply_level_result_and_end(level_result)
 	else:
@@ -195,6 +217,18 @@ func _apply_level_result_and_end(result: Dictionary) -> void:
 
 func start_level(level_id: int) -> void:
 	current_level_id = level_id
+	var level_data = LevelDatabase.get_level(current_level_id)
+	if level_data == null:
+		push_error("无效关卡ID: %d" % level_id)
+		return
+	# Autoload 会跨场景保留状态；每次开始关卡都必须显式清空上一局。
+	TurnManager.reset_for_level(level_data.max_turns)
+	VictoryManager.reset()
+	UnitDatabase.reset_for_level()
+	MovementSystem.reset_for_level()
+	planning_timer = 0.0
+	execution_timer = 0.0
+	execution_skip_requested = false
 	change_state(GameState.LEVEL_INTRO)
 	level_started.emit(level_id)
 
@@ -299,11 +333,16 @@ func get_version_string() -> String:
 
 
 func save_game(slot: int) -> void:
+	var units: Array[Dictionary] = []
+	for unit in get_tree().get_nodes_in_group("units"):
+		if unit is UnitBase and unit.is_alive:
+			units.append(unit.serialize())
 	var save_data = {
 		"version": version,
 		"build": build_number,
 		"level": current_level_id,
-		"turn": TurnManager.current_turn,
+		"turn": TurnManager.serialize(),
+		"units": units,
 		"campaign": CampaignManager.serialize(),
 		"emi": EMISystem.serialize(),
 		"morale": MoraleSystem.serialize(),
@@ -311,10 +350,12 @@ func save_game(slot: int) -> void:
 		"timestamp": Time.get_datetime_string_from_system()
 	}
 	var file = FileAccess.open("user://save_%d.json" % slot, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(save_data, "\t"))
-		file.close()
-		print("[GameManager] 存档已保存到槽位 %d" % slot)
+	if not file:
+		push_error("[GameManager] 无法写入存档槽位 %d" % slot)
+		return
+	file.store_string(JSON.stringify(save_data, "\t"))
+	file.close()
+	print("[GameManager] 存档已保存到槽位 %d" % slot)
 
 
 func load_game(slot: int) -> bool:
@@ -324,13 +365,44 @@ func load_game(slot: int) -> bool:
 		return false
 	var data = JSON.parse_string(file.get_as_text())
 	file.close()
-	if data:
-		CampaignManager.deserialize(data.get("campaign", {}))
-		EMISystem.deserialize(data.get("emi", {}))
-		MoraleSystem.deserialize(data.get("morale", {}))
-		CardSystem.deserialize(data.get("cards", {}))
-		# 恢复关卡
-		start_level(data.get("level", 0))
-		print("[GameManager] 存档已从槽位 %d 加载" % slot)
-		return true
-	return false
+	if not data is Dictionary or not data.has("level") or not data.has("units"):
+		push_error("[GameManager] 存档槽位 %d 格式无效" % slot)
+		return false
+	pending_save_data = data
+	print("[GameManager] 存档槽位 %d 已读取，等待场景恢复" % slot)
+	return true
+
+
+func has_save(slot: int) -> bool:
+	return FileAccess.file_exists("user://save_%d.json" % slot)
+
+
+func get_pending_level_id() -> int:
+	return int(pending_save_data.get("level", 0))
+
+
+func apply_pending_save(parent_node: Node) -> bool:
+	"""关卡基础场景和网格就绪后恢复动态系统与单位。"""
+	if pending_save_data.is_empty():
+		return false
+	var data := pending_save_data
+	pending_save_data = {}
+
+	for unit in get_tree().get_nodes_in_group("units"):
+		if unit is UnitBase:
+			unit.free()
+	UnitDatabase.reset_for_level()
+	for unit_data in data.get("units", []):
+		if unit_data is Dictionary:
+			UnitDatabase.restore_unit(unit_data, parent_node)
+
+	CampaignManager.deserialize(data.get("campaign", {}))
+	EMISystem.deserialize(data.get("emi", {}))
+	MoraleSystem.deserialize(data.get("morale", {}))
+	CardSystem.deserialize(data.get("cards", {}))
+	TurnManager.deserialize(data.get("turn", {}))
+	VictoryManager.register_initial_units()
+	print("[GameManager] 已恢复第%d关第%d回合，单位%d支" % [
+		current_level_id + 1, TurnManager.current_turn,
+		get_tree().get_nodes_in_group("units").size()])
+	return true

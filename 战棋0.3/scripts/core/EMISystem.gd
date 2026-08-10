@@ -24,7 +24,7 @@ const EMI_TIMELINE: Array[float] = [
 	1.00,   # 第07关: 100% — 「洪水」第三阶段
 	0.40,   # 第08关: 40%
 	0.30,   # 第09关: 30%
-	0.0,    # 第10关: 动态变化（100%→0%）
+	1.0,    # 第10关: 动态变化（100%→0%）
 ]
 
 ## === 第10关特殊EMI曲线 ===
@@ -135,6 +135,17 @@ func add_temp_modifier(amount: float, duration: int) -> void:
 	temp_modifier += amount
 	temp_modifier_duration = maxi(temp_modifier_duration, duration)
 	print("[EMISystem] 临时修正 +%.0f%%, 持续 %d 回合" % [amount * 100, duration])
+
+
+func change_base_intensity(delta: float) -> void:
+	"""关卡事件永久改变本关的基础干扰强度，并立即刷新效果。"""
+	var old := current_intensity
+	base_intensity = clampf(base_intensity + delta, 0.0, 1.0)
+	current_intensity = clampf(base_intensity + temp_modifier, 0.0, 1.0)
+	_update_modifiers()
+	if not is_equal_approx(old, current_intensity):
+		intensity_changed.emit(current_intensity, old)
+	print("[EMISystem] 基础强度变化 %+.0f%%，当前 %.0f%%" % [delta * 100.0, current_intensity * 100.0])
 
 
 func apply_countermeasure() -> void:

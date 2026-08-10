@@ -1,5 +1,27 @@
 # Silent Reckoning·1987 静默行动·1987
 
+## 当前可玩内容
+
+- 当前十关均可从关卡选择进入，并可在胜利后连续进入下一关；第1、2关已有专用场景，第3至第10关使用可替换的功能地图框架。
+- 核心循环：计划阶段给每支单位下达移动或指定攻击命令，并使用战术卡牌；演算阶段统一结算移动、攻击与自动接敌。
+- 操作：左键选择己方单位；点击蓝格规划移动，点击红色敌军指定攻击；右键取消或弃牌，Enter 确认/结束计划，Tab 展开/收起卡牌，P 暂停，F11 全屏。
+- 存档：游戏中按 P 暂停后可保存；主菜单“继续游戏”读取最近存档。
+- 胜利：第8回合结束控制至少2个VP，或摧毁敌方指挥单位；己方指挥单位被毁或全军覆没则失败。
+
+## 运行与导出
+
+1. 使用 Godot 4.7 或兼容的 Godot 4.x 版本导入本目录的 `project.godot`。
+2. 首次打开后等待资源导入完成，按 F6/F5 启动并完整进行一局。
+3. 安装 Windows 导出模板后，选择“项目 → 导出 → Windows Desktop”。默认输出为 `builds/Silent_Reckoning_1987.exe`。
+
+开发回归测试建议通过包装脚本执行；它会同时拦截 Godot 可能未反映到退出码中的脚本错误：
+
+```powershell
+python tools/run_tests.py
+```
+
+第3至第10关已具备独立20×12功能地图、双方部署、AI、EMI、卡牌、存档和胜负闭环；城市、密林、雪地、铁路及终局废墟目前使用占位地形，后续可直接替换TileMap与建筑素材。
+
 ## Godot 4.7.1 工程架构设计文档
 
 ---
@@ -7,13 +29,13 @@
 ## 一、项目总体架构
 
 ```
-1.0/
+战棋0.3/
 ├── project.godot                    # Godot 项目配置文件
 ├── README.md                        # 本文件 — 架构总览
 ├── scripts/                         # 所有 GDScript 脚本
-│   ├── core/                        # 核心系统（6个全局单例）
+│   ├── core/                        # 游戏流程、网格、回合、战役等核心服务
 │   │   ├── GameManager.gd           # 游戏主状态机
-│   │   ├── GridManager.gd           # 六边形网格坐标系统
+│   │   ├── GridManager.gd           # 四方向等距方格坐标系统
 │   │   ├── TurnManager.gd           # 回合制管理（计划+沙盘）
 │   │   ├── CampaignManager.gd       # 十关战役状态追踪
 │   │   ├── EMISystem.gd             # 全频带阻塞干扰系统
@@ -27,7 +49,7 @@
 │   │   ├── LineOfSight.gd           # 视野/可视性计算
 │   │   └── DamageCalculator.gd      # 伤害公式与修正
 │   ├── movement/                    # 移动系统
-│   │   ├── HexPathfinding.gd        # 六边形A*寻路
+│   │   ├── HexPathfinding.gd        # TilePathfinding 类（旧文件名，四方向A*）
 │   │   └── MovementSystem.gd        # 移动范围与路径执行
 │   ├── ai/                          # AI系统
 │   │   ├── NATOAI.gd                # 北约AI控制器（5种倾向）
@@ -36,7 +58,7 @@
 │   │   ├── CardSystem.gd            # 手牌管理（抽牌/弃牌/使用）
 │   │   └── CardDatabase.gd          # 12张共享手牌定义
 │   ├── ui/                          # 用户界面
-│   │   ├── HexGridRenderer.gd       # 六边形网格渲染
+│   │   ├── HexGridRenderer.gd       # 四边形等距网格渲染（旧文件名）
 │   │   ├── UnitRenderer.gd          # 单位视觉表现
 │   │   └── CardUI.gd                # 手牌UI面板
 │   └── levels/                      # 关卡系统
@@ -49,10 +71,10 @@
 
 ## 二、核心系统说明
 
-### 2.1 六边形网格 (GridManager)
-- 坐标系：偏移坐标(Offset) + 立方体坐标(Cube)双系统
+### 2.1 四方向等距方格 (GridManager)
+- 坐标系：关卡逻辑方格坐标 + TileMap 等距世界坐标
 - 地图尺寸：40×45 (X:1-40, Y:1-45)
-- 六边形平边朝向（Flat-top hex）
+- 邻接规则：上、下、左、右四方向；距离使用曼哈顿距离
 - 每个格子包含：地形类型、高度、控制方、可见性
 
 ### 2.2 回合制 (TurnManager)
@@ -85,4 +107,4 @@ Git 仓库结构：
 - `class_name` 用于全局类型注册
 - `@export` 用于编辑器可配置属性
 - `Signal` 用于系统间解耦通信
-- Autoload 单例模式管理6个核心系统
+- Autoload 管理跨场景服务；新增系统前应优先评估能否使用普通节点或资源，避免继续扩大全局状态

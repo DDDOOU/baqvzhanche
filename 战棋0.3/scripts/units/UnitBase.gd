@@ -280,5 +280,29 @@ func serialize() -> Dictionary:
 		"current_ammo": current_ammo,
 		"facing_angle": facing_angle,
 		"is_alive": is_alive,
-		"remaining_movement": remaining_movement
+		"remaining_movement": remaining_movement,
+		"vision_range": vision_range,
+		"base_vision_range": int(get_meta("base_vision_range", vision_range)),
+		"is_suppressed": is_suppressed,
+		"is_hidden": is_hidden,
+		"concealment_bonus": concealment_bonus,
+		"current_order": current_order
 	}
+
+
+func restore(data: Dictionary) -> void:
+	"""在工厂创建默认单位后恢复一局中的动态状态。"""
+	unit_id = int(data.get("unit_id", unit_id))
+	unit_name = String(data.get("unit_name", unit_name))
+	current_health = float(data.get("current_health", max_health))
+	current_ammo = int(data.get("current_ammo", max_ammo))
+	facing_angle = float(data.get("facing_angle", 0.0))
+	is_alive = bool(data.get("is_alive", true))
+	remaining_movement = int(data.get("remaining_movement", movement_points))
+	vision_range = int(data.get("vision_range", vision_range))
+	set_meta("base_vision_range", int(data.get("base_vision_range", vision_range)))
+	is_suppressed = bool(data.get("is_suppressed", false))
+	is_hidden = bool(data.get("is_hidden", false))
+	concealment_bonus = float(data.get("concealment_bonus", 0.0))
+	current_order = data.get("current_order", {}) as Dictionary
+	set_grid_position(int(data.get("grid_col", grid_col)), int(data.get("grid_row", grid_row)))

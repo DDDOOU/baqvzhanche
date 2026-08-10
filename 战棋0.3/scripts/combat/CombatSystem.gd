@@ -59,6 +59,11 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 		if attack_type == AttackType.BLIND_FIRE:
 			result["miss"] = true
 		return result
+	# 直射类命令在演算时再次校验射程/视线，防止目标移动后隔图开火。
+	if not is_card_attack and attack_type in [AttackType.DIRECT_FIRE, AttackType.ANTI_AIR, AttackType.CLOSE_ASSAULT]:
+		if not attacker.can_attack_target(target_col, target_row):
+			result["invalid_target"] = true
+			return result
 
 	# 卡牌攻击视为华约方，且只打击敌方（避免玩家手牌误伤己方）
 	var attacker_faction: int
@@ -107,6 +112,9 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	var roll = randf()
 	result["hit_chance"] = hit_chance
 	result["roll"] = roll
+	# 扣弹药代表已经开火；未命中也必须消耗一发。
+	if not is_card_attack:
+		attacker.current_ammo -= 1
 
 	if roll > hit_chance:
 		result["hit"] = false
@@ -144,10 +152,6 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	if not target.is_alive:
 		result["destroyed"] = true
 		was_destroyed = true
-
-	# 消耗弹药（卡牌攻击不消耗单位弹药）
-	if not is_card_attack:
-		attacker.current_ammo -= 1
 
 	# 先发命中信号（战报: 命中伤害 → 再发击毁信号）
 	attack_executed.emit(attacker_id, target_col, target_row, result)
@@ -373,14 +377,14 @@ func get_best_target_in_range(unit: UnitBase) -> Dictionary:
 
 
 ## === WEGO 相遇自动攻击 ===
-func resolve_encounter_attacks() -> void:
+func resolve_encounter_attacks(excluded_unit_ids: Array = []) -> void:
 	"""沙盘演绎阶段移动结算后调用。
 	遍历所有存活单位，检查射程内是否有敌方单位（相遇），
 	有则自动开火。按速度排序模拟同时交火。
 	每个单位按 attacks_per_turn 多次攻击。"""
 	var combatants: Array = []
 	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
-		if unit.is_alive:
+		if unit.is_alive and unit.unit_id not in excluded_unit_ids:
 			combatants.append(unit)
 
 	# 按速度排序，快的先开火

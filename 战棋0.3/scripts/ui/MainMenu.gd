@@ -24,7 +24,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F11 or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
+		if event.is_action_pressed("toggle_fullscreen") or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
 			_toggle_fullscreen()
 			get_viewport().set_input_as_handled()
 
@@ -78,7 +78,7 @@ func _build_start_panel() -> void:
 	start_panel.name = "StartPanel"
 	start_panel.alignment = BoxContainer.ALIGNMENT_CENTER
 	start_panel.add_theme_constant_override("separation", 14)
-	_anchor_menu_panel(start_panel, 0.64, 0.91, 360)
+	_anchor_menu_panel(start_panel, 0.52, 0.94, 360)
 	add_child(start_panel)
 
 	var start_button := _make_menu_button("开始游戏")
@@ -86,6 +86,12 @@ func _build_start_panel() -> void:
 		_start_level(0)
 	)
 	start_panel.add_child(start_button)
+
+	var continue_button := _make_menu_button("继续游戏")
+	continue_button.disabled = not GameManager.has_save(0)
+	continue_button.tooltip_text = "读取最近存档" if not continue_button.disabled else "尚无可读取的存档"
+	continue_button.pressed.connect(_continue_game)
+	start_panel.add_child(continue_button)
 
 	var select_button := _make_menu_button("关卡选择")
 	select_button.pressed.connect(_show_level_panel)
@@ -232,6 +238,11 @@ func _start_level(level_id: int) -> void:
 	get_tree().current_scene = next_scene
 	if current != null:
 		current.queue_free()
+
+
+func _continue_game() -> void:
+	if GameManager.load_game(0):
+		_start_level(GameManager.get_pending_level_id())
 
 
 func _toggle_fullscreen() -> void:

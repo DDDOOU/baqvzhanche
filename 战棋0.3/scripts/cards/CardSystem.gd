@@ -135,6 +135,23 @@ func draw_card(count: int = 1) -> void:
 		card_drawn.emit(card)
 
 
+func grant_card(card_id: String) -> bool:
+	"""由关卡事件直接授予一张指定卡牌。"""
+	var card_data := CardDatabase.get_card_data(card_id)
+	if card_data.is_empty():
+		return false
+	var card := CardInstance.new()
+	card.card_id = card_id
+	card.card_name = card_data.get("name", "")
+	card.cost = card_data.get("cost", 1)
+	card.max_cooldown = card_data.get("cooldown", 0)
+	card.cooldown = 0
+	card.data = card_data
+	hand.append(card)
+	card_drawn.emit(card)
+	return true
+
+
 func signal_card_discard_required() -> void:
 	"""手牌满时提示需要弃牌"""
 	print("[CardSystem] 手牌已满 (%d/%d)，需要弃牌" % [hand.size(), MAX_HAND_SIZE])
@@ -460,12 +477,12 @@ func activate_loan() -> bool:
 
 	loan_used_this_turn = true
 	loan_available = false
-	next_turn_card_penalty += 1
 	CampaignManager.campaign_loans += 10
 	loan_activated.emit()
 
-	# 立即抽一张牌
+	# 先立即抽一张牌，再登记下回合惩罚；否则惩罚会错误吞掉本次贷款收益。
 	draw_card()
+	next_turn_card_penalty += 1
 	print("[CardSystem] 指挥贷款激活 — 下回合手牌-1, 累计贷款: %d" % CampaignManager.campaign_loans)
 	return true
 

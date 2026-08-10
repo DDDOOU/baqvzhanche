@@ -32,6 +32,49 @@ func _build_all_levels() -> void:
 		_build_level_09(),
 		_build_level_10(),
 	])
+	_complete_late_level_frameworks()
+
+
+func _complete_late_level_frameworks() -> void:
+	"""为第3-10关补齐共用的可运行框架；独立场景可在后续直接替换美术。"""
+	for level in levels:
+		if level.level_id < 2:
+			continue
+		level.map_width = 20
+		level.map_height = 12
+		level.wp_spawn = [Vector2i(1, 6), Vector2i(2, 5), Vector2i(2, 7), Vector2i(2, 8)]
+		level.nato_spawn = [Vector2i(17, 6), Vector2i(18, 5), Vector2i(18, 7), Vector2i(18, 8)]
+		if String(level.briefing).is_empty():
+			level.briefing = "战役第%d关“%s”：在电磁干扰与敌军推进中守住中央战略走廊。" % [level.level_id + 1, level.level_name]
+		if String(level.primary_objective).is_empty():
+			level.primary_objective = "终局控制至少2个战略VP。"
+		if String(level.victory_condition).is_empty():
+			level.victory_condition = "控制至少2个VP，或摧毁敌方指挥单位。"
+		if String(level.failure_condition).is_empty():
+			level.failure_condition = "己方指挥单位被毁、全军覆没，或终局VP不足。"
+		if level.nato_units.is_empty():
+			level.nato_units = _build_default_nato_force(level.level_id)
+
+
+func _build_default_nato_force(level_id: int) -> Array:
+	var desired_count: int = {5: 8, 6: 10, 7: 8, 8: 10, 9: 12}.get(level_id, 8)
+	var slots := [
+		Vector2i(16, 6), Vector2i(15, 5), Vector2i(15, 7), Vector2i(16, 5),
+		Vector2i(16, 7), Vector2i(17, 5), Vector2i(17, 7), Vector2i(15, 8),
+		Vector2i(16, 8), Vector2i(17, 8), Vector2i(14, 6), Vector2i(14, 8),
+	]
+	var types := [
+		UnitBase.UnitType.M1A1_TANK, UnitBase.UnitType.M1A1_TANK,
+		UnitBase.UnitType.M2_IFV, UnitBase.UnitType.MECH_INFANTRY,
+		UnitBase.UnitType.M2_IFV, UnitBase.UnitType.MECH_INFANTRY,
+		UnitBase.UnitType.M901_ITV, UnitBase.UnitType.M109_ARTILLERY,
+		UnitBase.UnitType.M113_APC, UnitBase.UnitType.MECH_INFANTRY,
+		UnitBase.UnitType.M1A1_TANK, UnitBase.UnitType.NATO_ENGINEER,
+	]
+	var force: Array = []
+	for index in range(desired_count):
+		force.append({"type": types[index], "col": slots[index].x, "row": slots[index].y})
+	return force
 
 
 ## === 第1关·边境晨雾 ===
@@ -98,7 +141,7 @@ func _build_level_01() -> LevelData:
 		{"turn": 1, "phase": "turn_start", "id": "fog_warning", "description": "晨雾生效，视野3格"},
 		{"turn": 3, "phase": "turn_start", "id": "ah64_arrives", "description": "北约AH-64进场"},
 		{"turn": 4, "phase": "turn_start", "id": "fog_lifts", "description": "晨雾消散，视野恢复6格"},
-		{"turn": 5, "phase": "turn_start", "id": "emi_rise", "description": "EMI强度+5%"},
+		{"turn": 5, "phase": "turn_start", "id": "emi_rise", "description": "EMI强度+5%", "emi_delta": 0.05},
 		{"turn": 6, "phase": "turn_start", "id": "unknown_contact_1", "description": "未知接触出现(11,J)"},
 		{"turn": 7, "phase": "turn_start", "id": "artillery_ready", "description": "列夫森科下令火箭炮准备"},
 	]
@@ -124,15 +167,23 @@ func _build_level_01() -> LevelData:
 	return level
 
 
-## === 第2-10关（简化结构，实际使用时填充完整数据） ===
+## === 第2-10关（功能框架已接入，后续继续细化剧情与美术） ===
 func _build_level_02() -> LevelData:
 	var level = LevelData.new()
 	level.level_id = 1
 	level.level_name = "铁路线防御"
 	level.act_number = 1
+	level.briefing = "凌晨05:20，北约装甲纵队沿铁路枢纽推进。守住仓库、铁路桥与南侧桥头堡；工兵可布雷，也能安全排除雷区。"
+	level.primary_objective = "第10回合结束时控制至少2个铁路VP。"
+	level.victory_condition = "守住至少2个VP，或摧毁北约指挥单位。"
+	level.failure_condition = "己方指挥单位被毁、全军覆没，或终局控制少于2个VP。"
 	level.max_turns = 10
 	level.emi_base_level = 0.0
+	level.map_width = 20
+	level.map_height = 12
 	level.vp_cells = [Vector2i(9, 6), Vector2i(9, 4), Vector2i(9, 8)]  # 桥、火车站、桥头堡
+	level.wp_spawn = [Vector2i(2, 6), Vector2i(2, 8), Vector2i(1, 7)]
+	level.nato_spawn = [Vector2i(17, 6), Vector2i(18, 8), Vector2i(18, 5)]
 	level.wp_command_center = Vector2i(2, 6)
 	level.nato_command_center = Vector2i(17, 6)
 	level.wp_starting_cards = CardDatabase.get_level_cards(1)
@@ -166,7 +217,7 @@ func _build_level_02() -> LevelData:
 	level.turn_events = [
 		{"turn": 1, "phase": "turn_start", "id": "loan_tutorial", "description": "指挥贷款机制教学"},
 		{"turn": 4, "phase": "turn_start", "id": "nato_engineer", "description": "北约工兵开始排雷"},
-		{"turn": 5, "phase": "turn_start", "id": "emi_rise_15", "description": "EMI上升至15%"},
+		{"turn": 5, "phase": "turn_start", "id": "emi_rise_15", "description": "EMI上升至15%", "emi_target": 0.15},
 		{"turn": 6, "phase": "turn_start", "id": "reserve_ready", "description": "华约预备队可投入"},
 		{"turn": 8, "phase": "turn_start", "id": "ah64_arrives", "description": "北约AH-64进场"},
 		{"turn": 9, "phase": "turn_start", "id": "refugee_convoy", "description": "难民车队出现(12,J)"},
@@ -200,7 +251,7 @@ func _build_level_03() -> LevelData:
 		{"type": UnitBase.UnitType.M1A1_TANK, "col": 15, "row": 5},
 		{"type": UnitBase.UnitType.M1A1_TANK, "col": 16, "row": 7},
 		{"type": UnitBase.UnitType.M2_IFV, "col": 15, "row": 7},
-		{"type": UnitBase.UnitType.M2_IFV, "col": 16, "row": 5},
+		{"type": UnitBase.UnitType.M2_IFV, "col": 16, "row": 6},
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 14, "row": 5},
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 15, "row": 6},
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 14, "row": 8},
@@ -452,7 +503,7 @@ func _build_level_10() -> LevelData:
 		{"type": UnitBase.UnitType.BMP2_IFV, "col": 2, "row": 6},
 		{"type": UnitBase.UnitType.BMP2_IFV, "col": 4, "row": 6},
 		{"type": UnitBase.UnitType.BM21_ROCKET, "col": 1, "row": 6},
-		{"type": UnitBase.UnitType.SAPPERS, "col": 4, "row": 5},
+		{"type": UnitBase.UnitType.SAPPERS, "col": 2, "row": 5},
 	]
 	level.intel_a = "'洪水'第四阶段已启动，EMI 100%。"
 	level.intel_b = "敌军发起最后的进攻。"

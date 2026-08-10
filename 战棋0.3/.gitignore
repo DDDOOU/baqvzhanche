@@ -6,7 +6,7 @@
 *.import
 *.translation
 export/
-export_presets.cfg
+builds/
 
 # User data
 user://
