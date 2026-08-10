@@ -146,6 +146,19 @@ func highlight_move_range(unit: UnitBase) -> void:
 	highlight_cells(reachable, HL_MOVE)
 
 
+func highlight_unit_actions(unit: UnitBase) -> void:
+	"""同时显示可移动格与当前可直接攻击的敌军格。"""
+	highlight.clear()
+	for p in TilePathfinding.get_reachable_cells(unit):
+		highlight["%d,%d" % [p.x, p.y]] = HL_MOVE
+	for candidate in get_tree().get_nodes_in_group("units"):
+		if not candidate is UnitBase or not candidate.is_alive or candidate.faction == unit.faction:
+			continue
+		if unit.can_attack_target(candidate.grid_col, candidate.grid_row):
+			highlight["%d,%d" % [candidate.grid_col, candidate.grid_row]] = HL_ATTACK
+	queue_redraw()
+
+
 func highlight_attack_range(unit: UnitBase) -> void:
 	var cells = GridManager.get_cells_in_range(unit.grid_col, unit.grid_row, unit.get_effective_range())
 	var valid: Array = []

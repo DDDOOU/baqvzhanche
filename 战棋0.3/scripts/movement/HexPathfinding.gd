@@ -186,3 +186,8 @@ static func _is_armored(unit: UnitBase = null) -> bool:
 		UnitBase.UnitType.GVOZDIKA_ARTILLERY, UnitBase.UnitType.M901_ITV,
 		UnitBase.UnitType.M109_ARTILLERY, UnitBase.UnitType.M113_APC
 	]
+
+
+static func is_armored(unit: UnitBase = null) -> bool:
+	"""公开的装甲单位类型判断，供移动与路径验证复用。"""
+	return _is_armored(unit)

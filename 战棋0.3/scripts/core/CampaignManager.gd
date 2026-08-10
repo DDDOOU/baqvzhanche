@@ -194,9 +194,11 @@ func serialize() -> Dictionary:
 		"campaign_kills": campaign_kills,
 		"current_act": current_act,
 		"levels_completed": levels_completed,
+		"level_results": level_results,
 		"reserve_units": reserve_units,
 		"misha_alive": misha_alive,
 		"misha_morale": misha_morale,
+		"has_credit_loan": has_credit_loan,
 		"helicopter_kills": helicopter_kills,
 		"civilian_casualties": civilian_casualties
 	}
@@ -208,8 +210,15 @@ func deserialize(data: Dictionary) -> void:
 	campaign_loans = data.get("campaign_loans", 0)
 	campaign_kills = data.get("campaign_kills", 0)
 	current_act = data.get("current_act", 1)
-	levels_completed = data.get("levels_completed", [])
+	levels_completed.clear()
+	for level_id in data.get("levels_completed", []):
+		levels_completed.append(int(level_id))
+	level_results.clear()
+	for level_id in data.get("level_results", {}):
+		level_results[int(level_id)] = data["level_results"][level_id]
+	reserve_units = data.get("reserve_units", []).duplicate(true)
 	misha_alive = data.get("misha_alive", true)
 	misha_morale = data.get("misha_morale", 75)
+	has_credit_loan = data.get("has_credit_loan", false)
 	helicopter_kills = data.get("helicopter_kills", 0)
 	civilian_casualties = data.get("civilian_casualties", 0)

@@ -1,0 +1,78 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/levels/Level02Builder.gd" id="1_builder"]
+[ext_resource type="TileSet" uid="uid://c2gk8cbvtx2b7" path="res://resources/tilesets/isometric_terrain.tres" id="2_tileset"]
+[ext_resource type="Script" uid="uid://bbcetoo6o5lku" path="res://scripts/levels/GridMarker2D.gd" id="3_marker"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/infrastructure/infrastructure_07_supply_warehouse.tscn" id="4_warehouse"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/infrastructure/infrastructure_04_radio_mast.tscn" id="5_radio"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/infrastructure/infrastructure_10_road_checkpoint.tscn" id="6_checkpoint"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/fortifications/02_沙袋阵地_SandbagNest.tscn" id="7_sandbag"]
+
+[node name="Level02_RailwayDefense" type="Node2D"]
+script = ExtResource("1_builder")
+
+[node name="Terrain（地块）" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+tile_set = ExtResource("2_tileset")
+y_sort_origin = 8
+
+[node name="Buildings（建筑）" type="Node2D" parent="."]
+z_index = 2
+y_sort_enabled = true
+
+[node name="RailWarehouse_WP" parent="Buildings（建筑）" instance=ExtResource("4_warehouse")]
+grid_coordinate = Vector2i(7, 1)
+
+[node name="RadioMast_WP" parent="Buildings（建筑）" instance=ExtResource("5_radio")]
+grid_coordinate = Vector2i(1, 1)
+
+[node name="BridgeCheckpoint" parent="Buildings（建筑）" instance=ExtResource("6_checkpoint")]
+grid_coordinate = Vector2i(10, 6)
+
+[node name="BridgeheadSandbags_WP" parent="Buildings（建筑）" instance=ExtResource("7_sandbag")]
+grid_coordinate = Vector2i(7, 9)
+
+[node name="Markers" type="Node2D" parent="."]
+
+[node name="WPSpawn01" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(2, 6)
+
+[node name="WPSpawn02" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(2, 8)
+
+[node name="NATOSpawn01" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(17, 6)
+marker_type = 1
+
+[node name="NATOSpawn02" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(18, 8)
+marker_type = 1
+
+[node name="VP_RailStation" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(9, 4)
+marker_type = 2
+
+[node name="VP_RailBridge" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(9, 6)
+marker_type = 2
+
+[node name="VP_Bridgehead" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(9, 8)
+marker_type = 2
+
+[node name="WPCommandCenter" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(2, 6)
+marker_type = 3
+
+[node name="NATOCommandCenter" type="Marker2D" parent="Markers"]
+script = ExtResource("3_marker")
+grid_coordinate = Vector2i(17, 6)
+marker_type = 4

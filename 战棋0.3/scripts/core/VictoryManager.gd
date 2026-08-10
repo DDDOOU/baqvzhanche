@@ -9,6 +9,8 @@
 # ==============================================================================
 extends Node
 
+const DEBUG_LOGS := false
+
 ## === 信号 ===
 signal game_over(winner_faction: int, reason: String)
 signal victory_checked(wp_alive: int, nato_alive: int)
@@ -22,6 +24,10 @@ var nato_command_center_pos: Vector2i = Vector2i(-1, -1)
 var max_turns: int = 8
 var wp_initial_units: int = 0
 var last_game_over_reason: String = ""   # 存储真正的胜利原因，供 UI 读取
+var wp_command_unit_id: int = -1
+var nato_command_unit_id: int = -1
+var wp_command_destroyed: bool = false
+var nato_command_destroyed: bool = false
 
 
 func _ready() -> void:
@@ -37,7 +43,12 @@ func reset() -> void:
 	wp_command_center_pos = Vector2i(-1, -1)
 	nato_command_center_pos = Vector2i(-1, -1)
 	max_turns = 8
+	wp_initial_units = 0
 	last_game_over_reason = ""
+	wp_command_unit_id = -1
+	nato_command_unit_id = -1
+	wp_command_destroyed = false
+	nato_command_destroyed = false
 
 
 func setup_level(level_data) -> void:
@@ -52,9 +63,12 @@ func setup_level(level_data) -> void:
 
 
 func register_initial_units() -> void:
-	"""单位创建完成后调用，记录初始单位数"""
+	"""单位创建完成后记录初始数量，并绑定双方指挥中心的开局驻守单位。"""
 	wp_initial_units = _count_faction_units(UnitBase.Faction.WARSAW_PACT)
-	print("[VictoryManager] 初始单位数: 华约 %d" % wp_initial_units)
+	wp_command_unit_id = _get_unit_id_at(wp_command_center_pos, UnitBase.Faction.WARSAW_PACT)
+	nato_command_unit_id = _get_unit_id_at(nato_command_center_pos, UnitBase.Faction.NATO)
+	print("[VictoryManager] 初始单位数: 华约 %d；指挥单位 WP=%d NATO=%d" % [
+		wp_initial_units, wp_command_unit_id, nato_command_unit_id])
 
 
 func check_victory_now() -> Dictionary:
@@ -63,13 +77,13 @@ func check_victory_now() -> Dictionary:
 	var wp_alive: int = counts[UnitBase.Faction.WARSAW_PACT]
 	var nato_alive: int = counts[UnitBase.Faction.NATO]
 
-	# 调试输出：每次检查都打印中间值
 	var wp_cc_destroyed = _is_command_center_destroyed(UnitBase.Faction.WARSAW_PACT)
 	var nato_cc_destroyed = _is_command_center_destroyed(UnitBase.Faction.NATO)
-	print("[VictoryManager DEBUG] wp_alive=%d nato_alive=%d | WP_CC_destroyed=%s NATO_CC_destroyed=%s | WP_CC_pos=(%d,%d) NATO_CC_pos=(%d,%d)" % [
-		wp_alive, nato_alive, wp_cc_destroyed, nato_cc_destroyed,
-		wp_command_center_pos.x, wp_command_center_pos.y,
-		nato_command_center_pos.x, nato_command_center_pos.y])
+	if DEBUG_LOGS:
+		print("[VictoryManager DEBUG] wp_alive=%d nato_alive=%d | WP_CC_destroyed=%s NATO_CC_destroyed=%s | WP_CC_pos=(%d,%d) NATO_CC_pos=(%d,%d)" % [
+			wp_alive, nato_alive, wp_cc_destroyed, nato_cc_destroyed,
+			wp_command_center_pos.x, wp_command_center_pos.y,
+			nato_command_center_pos.x, nato_command_center_pos.y])
 
 	var result = {
 		"wp_alive": wp_alive,
@@ -97,7 +111,7 @@ func check_victory_now() -> Dictionary:
 		result.game_over = true
 		result.reason = "北约单位被全歼"
 
-	if result.game_over:
+	if result.game_over and DEBUG_LOGS:
 		print("[VictoryManager DEBUG] !!! game_over 触发: winner=%s reason=%s" % [
 			_faction_name(result.winner), result.reason])
 
@@ -162,10 +176,14 @@ func check_turn_end_victory(current_turn: int) -> Dictionary:
 	return result
 
 
-func _on_unit_destroyed(_unit_id: int, _killer_id: int) -> void:
+func _on_unit_destroyed(unit_id: int, _killer_id: int) -> void:
 	"""单位摧毁时即时检查"""
 	if is_game_over:
 		return
+	if unit_id == wp_command_unit_id:
+		wp_command_destroyed = true
+	elif unit_id == nato_command_unit_id:
+		nato_command_destroyed = true
 	var result = check_victory_now()
 	if result.game_over:
 		_trigger_game_over(result.winner, result.reason)
@@ -179,6 +197,11 @@ func _trigger_game_over(winner: int, reason: String) -> void:
 	last_game_over_reason = reason
 	print("[VictoryManager] 游戏结束 — %s" % reason)
 	game_over.emit(winner, reason)
+
+
+func finish_game(winner: int, reason: String) -> void:
+	"""供游戏流程调用的正式结算接口。"""
+	_trigger_game_over(winner, reason)
 
 
 ## === VP控制统计 ===
@@ -204,29 +227,17 @@ func _count_vp_control() -> Dictionary:
 	return {"wp": wp_vp, "nato": nato_vp, "neutral": neutral}
 
 
+func get_vp_control() -> Dictionary:
+	"""返回当前胜利点控制统计。"""
+	return _count_vp_control()
+
+
 ## === 指挥中心判定 ===
 func _is_command_center_destroyed(faction: int) -> bool:
-	"""检查指挥中心位置的单位是否已被摧毁 — true=已摧毁
-	规则：格上有死亡单位=被摧毁；格空=单位移动了，未被摧毁"""
-	var pos = wp_command_center_pos if faction == UnitBase.Faction.WARSAW_PACT else nato_command_center_pos
-	if pos.x < 0:
-		return false
-	var cell = GridManager.get_cell(pos.x, pos.y)
-	if not cell:
-		return true  # 格子不存在视为已毁
-	if cell.occupant_unit:
-		# 有单位占据 → 看是否活着
-		var destroyed = not cell.occupant_unit.is_alive
-		print("[VictoryManager DEBUG] CC check %s: pos=(%d,%d) 占据者=%s(阵营%d) is_alive=%s → destroyed=%s" % [
-			_faction_name(faction), pos.x, pos.y,
-			cell.occupant_unit.unit_name, cell.occupant_unit.faction,
-			cell.occupant_unit.is_alive, destroyed])
-		return destroyed
-	else:
-		# 格上无单位 → 单位移动了，指挥中心暴露但未被摧毁
-		print("[VictoryManager DEBUG] CC check %s: pos=(%d,%d) 格上无单位 → destroyed=false（单位移动了）" % [
-			_faction_name(faction), pos.x, pos.y])
-		return false
+	"""检查开局绑定的指挥单位是否已被摧毁；移动不会解除其指挥身份。"""
+	if faction == UnitBase.Faction.WARSAW_PACT:
+		return wp_command_destroyed
+	return nato_command_destroyed
 
 
 func _is_command_center_alive(faction: int) -> bool:
@@ -239,6 +250,17 @@ func _check_command_unit_alive(faction: int) -> bool:
 		if unit.faction == faction and unit.is_alive and unit.is_command:
 			return true
 	return false
+
+
+func _get_unit_id_at(pos: Vector2i, faction: int) -> int:
+	var cell = GridManager.get_cell(pos.x, pos.y)
+	if cell and cell.occupant_unit and cell.occupant_unit.faction == faction:
+		return cell.occupant_unit.unit_id
+	# 关卡数据未把单位正好放在标记格时，优先采用该阵营显式指挥单位。
+	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
+		if unit.faction == faction and unit.is_alive and unit.is_command:
+			return unit.unit_id
+	return -1
 
 
 ## === 单位统计 ===

@@ -10,6 +10,7 @@ signal unit_move_started(unit_id: int, path: Array)
 signal unit_move_completed(unit_id: int, final_col: int, final_row: int)
 signal unit_step(unit_id: int, col: int, row: int)
 signal mine_triggered(unit_id: int, col: int, row: int)
+signal mine_cleared(unit_id: int, col: int, row: int)
 
 const BASE_MOVE_SPEED: float = 0.3
 
@@ -33,7 +34,7 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 	unit_move_started.emit(unit_id, path)
 
 	var remaining_mp: float = float(unit.remaining_movement)
-	var is_armored = TilePathfinding._is_armored(unit)
+	var is_armored = TilePathfinding.is_armored(unit)
 
 	for i in range(path.size()):
 		var step = path[i]
@@ -56,10 +57,24 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 		remaining_mp -= move_cost
 
 		if _check_mines(col, row):
-			result["mines_hit"] = true
-			mine_triggered.emit(unit_id, col, row)
-			unit.remaining_movement = 0
-			break
+			var mine_pos := Vector2i(col, row)
+			mine_cells.erase(mine_pos)
+			if unit.can_clear_mines:
+				mine_cleared.emit(unit_id, col, row)
+				BattleLog.add_log("[工兵] %s 安全排除 (%d,%d) 雷区" % [unit.unit_name, col + 1, row + 1], Color(0.55, 0.9, 0.55))
+			else:
+				result["mines_hit"] = true
+				unit.set_grid_position(col, row)
+				result["steps_completed"] += 1
+				result["final_col"] = col
+				result["final_row"] = row
+				mine_triggered.emit(unit_id, col, row)
+				unit.take_damage(unit.max_health * 0.30, -1)
+				BattleLog.add_log("[触雷] %s 损失30%%生命并停止移动" % unit.unit_name, Color(1.0, 0.35, 0.25))
+				if not unit.is_alive:
+					CombatSystem.unit_destroyed.emit(unit.unit_id, -1)
+				remaining_mp = 0.0
+				break
 
 		unit.set_grid_position(col, row)
 		unit_step.emit(unit_id, col, row)
@@ -94,7 +109,7 @@ func validate_path(unit_id: int, path: Array) -> bool:
 	var cc = unit.grid_col
 	var cr = unit.grid_row
 	var total = 0.0
-	var is_armored = TilePathfinding._is_armored(unit)
+	var is_armored = TilePathfinding.is_armored(unit)
 
 	for step in path:
 		var dist = GridManager.manhattan_distance(cc, cr, step.x, step.y)
@@ -114,8 +129,14 @@ func validate_path(unit_id: int, path: Array) -> bool:
 
 var mine_cells: Array = []
 
+
+func reset_for_level() -> void:
+	mine_cells.clear()
+
 func lay_mines(col: int, row: int) -> void:
-	mine_cells.append(Vector2i(col, row))
+	var pos := Vector2i(col, row)
+	if pos not in mine_cells:
+		mine_cells.append(pos)
 
 
 func _check_mines(col: int, row: int) -> bool:

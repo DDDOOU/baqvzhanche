@@ -40,6 +40,21 @@ func _ready() -> void:
 	print("[TurnManager] 回合管理系统就绪")
 
 
+func reset_for_level(level_max_turns: int) -> void:
+	"""开始或重开关卡时清除所有上一局的临时状态。"""
+	current_turn = 1
+	max_turns = maxi(1, level_max_turns)
+	is_planning = false
+	is_executing = false
+	execution_actions_finished = false
+	orders_locked = false
+	player_orders.clear()
+	ai_orders.clear()
+	turn_events.clear()
+	processed_events.clear()
+	print("[TurnManager] 关卡状态已重置，最大回合=%d" % max_turns)
+
+
 ## === 计划阶段 ===
 func start_planning_phase() -> void:
 	is_planning = true
@@ -109,10 +124,10 @@ func start_execution_phase() -> void:
 	CardSystem.resolve_pending_card_effects()
 
 	# 3) 执行显式攻击指令（AI盲射/指定攻击，基于移动后新位置判定）
-	_execute_explicit_attacks()
+	var explicit_attackers := _execute_explicit_attacks()
 
 	# 4) 相遇自动攻击 — 移动结算后，射程内的敌对单位自动开火
-	CombatSystem.resolve_encounter_attacks()
+	CombatSystem.resolve_encounter_attacks(explicit_attackers)
 
 	execution_actions_finished = true
 	execution_actions_completed.emit(current_turn)
@@ -140,7 +155,7 @@ func _execute_all_moves_combined() -> void:
 
 
 ## === WEGO 阶段2: 显式攻击（AI盲射等） ===
-func _execute_explicit_attacks() -> void:
+func _execute_explicit_attacks() -> Array:
 	"""执行 attack 类型指令，基于移动后的新位置判定"""
 	var all_attack_orders: Array = []
 	for uid in player_orders:
@@ -156,8 +171,12 @@ func _execute_explicit_attacks() -> void:
 			entry.unit_id,
 			o.get("target_col", 0),
 			o.get("target_row", 0),
-			o.get("attack_type", CombatSystem.AttackType.DIRECT_FIRE)
+			 o.get("attack_type", CombatSystem.AttackType.DIRECT_FIRE)
 		)
+	var attacker_ids: Array = []
+	for entry in all_attack_orders:
+		attacker_ids.append(entry.unit_id)
+	return attacker_ids
 
 
 func _execute_orders(orders: Dictionary, is_player: bool) -> void:

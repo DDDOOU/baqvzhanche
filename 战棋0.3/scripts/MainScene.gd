@@ -13,6 +13,7 @@ var morale_label: Label
 var emi_label: Label
 var phase_timer_label: Label
 var hover_coord_label: Label
+var action_hint_label: Label
 var victory_progress_label: RichTextLabel
 var hover_info_panel: PanelContainer
 var hover_info_label: Label
@@ -21,7 +22,8 @@ var card_toggle_button: Button
 var pause_button: Button
 var confirm_move_button: Button
 var cancel_move_button: Button
-var pause_overlay: CanvasLayer
+var loan_button: Button
+var pause_overlay: PauseMenu
 var selected_unit: UnitBase = null
 var pending_move_unit: UnitBase = null
 var pending_move_path: Array = []
@@ -44,7 +46,7 @@ var is_dragging_map: bool = false
 var drag_start_mouse: Vector2 = Vector2.ZERO
 var drag_start_pan: Vector2 = Vector2.ZERO
 var drag_moved: bool = false
-var startup_level_id: int = 0
+var startup_level_id: int = -1
 const CAMERA_PAN_SPEED: float = 420.0
 const CAMERA_MIN_ZOOM: float = 0.05
 const CAMERA_MAX_ZOOM: float = 2.0
@@ -58,7 +60,8 @@ func _ready() -> void:
 	print("  Silent Reckoning·1987  静默行动·1987")
 	print("=".repeat(50))
 
-	_load_designed_level(startup_level_id)
+	var level_id := startup_level_id if startup_level_id >= 0 else GameManager.current_level_id
+	_load_designed_level(level_id)
 	_connect_signals()
 	_setup_ui()
 	_fit_camera_to_map()
@@ -68,7 +71,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_viewport_resized)
 
 	# 直接启动指定关卡
-	GameManager.start_level(startup_level_id)
+	GameManager.start_level(level_id)
 
 
 ## ==================== 相机 ====================
@@ -264,6 +267,7 @@ func _connect_signals() -> void:
 	TurnManager.planning_phase_started.connect(_on_planning_started)
 	TurnManager.execution_phase_started.connect(_on_execution_started)
 	TurnManager.turn_resolved.connect(_on_turn_resolved)
+	TurnManager.round_event_triggered.connect(_on_round_event_triggered)
 	CombatSystem.attack_executed.connect(_on_attack_executed)
 	CombatSystem.unit_destroyed.connect(_on_unit_destroyed)
 	MoraleSystem.unit_broken.connect(_on_unit_broken)
@@ -298,6 +302,11 @@ func _setup_ui() -> void:
 	hover_coord_label = _make_label(Vector2(10, 110), Color(0.75, 0.9, 1.0), "")
 	for lbl in [turn_label, morale_label, emi_label, phase_timer_label, hover_coord_label]:
 		hud.add_child(lbl)
+
+	action_hint_label = _make_label(Vector2(10, 272), Color(0.92, 0.9, 0.7),
+		"操作：点击己方单位 → 点击蓝格移动 / 点击红色敌军攻击；Tab 使用卡牌；Enter 结束计划")
+	action_hint_label.add_theme_font_size_override("font_size", 13)
+	hud.add_child(action_hint_label)
 
 	finish_planning_button = Button.new()
 	finish_planning_button.position = Vector2(10, 138)
@@ -340,6 +349,15 @@ func _setup_ui() -> void:
 	cancel_move_button.visible = false
 	cancel_move_button.pressed.connect(_on_cancel_move_pressed)
 	hud.add_child(cancel_move_button)
+
+	loan_button = Button.new()
+	loan_button.position = Vector2(618, 138)
+	loan_button.size = Vector2(142, 36)
+	loan_button.text = "指挥贷款 +1牌"
+	loan_button.tooltip_text = "立即抽1张牌；下回合少抽1张，战役贷款+10"
+	loan_button.visible = false
+	loan_button.pressed.connect(_on_loan_pressed)
+	hud.add_child(loan_button)
 
 	_create_hover_info_panel(hud)
 	_create_victory_progress_panel(hud)
@@ -415,25 +433,11 @@ func _create_hover_info_panel(hud: CanvasLayer) -> void:
 
 
 func _create_pause_overlay() -> void:
-	pause_overlay = CanvasLayer.new()
-	pause_overlay.layer = 90
-	pause_overlay.visible = false
-	pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause_overlay = PauseMenu.new()
+	pause_overlay.resume_requested.connect(_on_pause_pressed)
+	pause_overlay.save_requested.connect(_on_save_pressed)
+	pause_overlay.menu_requested.connect(_return_to_main_menu)
 	add_child(pause_overlay)
-
-	var shade := ColorRect.new()
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0, 0, 0, 0.14)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pause_overlay.add_child(shade)
-
-	var label := Label.new()
-	label.position = Vector2(18, 228)
-	label.text = "已暂停：地图局势可查看，操作已锁定"
-	label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.72))
-	label.add_theme_font_size_override("font_size", 18)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pause_overlay.add_child(label)
 
 
 func _process(delta: float) -> void:
@@ -446,13 +450,13 @@ func _process(delta: float) -> void:
 
 	if not is_paused:
 		var move_direction := Vector2.ZERO
-		if Input.is_key_pressed(KEY_A):
+		if Input.is_action_pressed("camera_left"):
 			move_direction.x += 1.0
-		if Input.is_key_pressed(KEY_D):
+		if Input.is_action_pressed("camera_right"):
 			move_direction.x -= 1.0
-		if Input.is_key_pressed(KEY_W):
+		if Input.is_action_pressed("camera_up"):
 			move_direction.y += 1.0
-		if Input.is_key_pressed(KEY_S):
+		if Input.is_action_pressed("camera_down"):
 			move_direction.y -= 1.0
 		if move_direction != Vector2.ZERO:
 			camera_pan += move_direction.normalized() * CAMERA_PAN_SPEED * delta
@@ -621,11 +625,12 @@ func _cell_key(cell: Vector2i) -> String:
 func _update_victory_progress() -> void:
 	if victory_progress_label == null:
 		return
-	var vp = VictoryManager._count_vp_control()
+	var vp = VictoryManager.get_vp_control()
 	var counts := _count_alive_units_local()
-	victory_progress_label.text = "[font_size=12][color=#e8e4bf][b]胜利条件[/b][/color]  第%d回合结束守住至少2个VP\n[color=#d8d8d8]进度[/color]  第%d/%d回合   VP 我方%d/3 敌方%d 中立%d\n[color=#d8d8d8]单位[/color]  我方%d 敌方%d    [color=#6ab7ff]蓝[/color]=我方建筑 [color=#ff766c]红[/color]=敌方建筑[/font_size]" % [
+	var vp_total := GridManager.vp_cells.size()
+	victory_progress_label.text = "[font_size=12][color=#e8e4bf][b]胜利条件[/b][/color]  第%d回合结束守住至少2个VP\n[color=#d8d8d8]进度[/color]  第%d/%d回合   VP 我方%d/%d 敌方%d 中立%d\n[color=#d8d8d8]单位[/color]  我方%d 敌方%d    [color=#6ab7ff]蓝[/color]=我方建筑 [color=#ff766c]红[/color]=敌方建筑[/font_size]" % [
 		VictoryManager.max_turns, TurnManager.current_turn, VictoryManager.max_turns,
-		vp.wp, vp.nato, vp.neutral,
+		vp.wp, vp_total, vp.nato, vp.neutral,
 		counts.wp, counts.nato]
 
 
@@ -657,6 +662,22 @@ func _on_card_toggle_pressed() -> void:
 	_set_card_panel_open(not card_ui.is_panel_open)
 
 
+func _on_loan_pressed() -> void:
+	if is_paused or GameManager.current_state != GameManager.GameState.PLANNING_PHASE:
+		return
+	if CardSystem.activate_loan():
+		BattleLog.add_log("指挥贷款启用：立即抽1张牌，下回合手牌-1。", Color(1.0, 0.82, 0.35))
+		_set_action_hint("贷款已使用：本回合多1张牌，下回合将少抽1张。")
+	_sync_loan_button()
+
+
+func _sync_loan_button() -> void:
+	if loan_button == null or not loan_button.visible:
+		return
+	loan_button.disabled = is_paused or not CardSystem.loan_available or GameManager.current_state != GameManager.GameState.PLANNING_PHASE
+	loan_button.text = "贷款已使用" if not CardSystem.loan_available else "指挥贷款 +1牌"
+
+
 func _set_card_panel_open(open: bool) -> void:
 	card_ui.is_panel_open = open
 	card_ui.visible = open
@@ -680,8 +701,14 @@ func _on_level_started(level_id: int) -> void:
 	BattleLog.clear()
 	BattleLog.add_log("第 %d 关开始" % (level_id + 1), Color(0.8, 0.8, 0.8))
 	var ld = LevelDatabase.get_level(level_id)
+	loan_button.visible = level_id == 1
+	_sync_loan_button()
+	if not String(ld.briefing).is_empty():
+		BattleLog.add_log("任务简报：%s" % ld.briefing, Color(0.85, 0.88, 1.0))
+	if not String(ld.intel_a).is_empty():
+		BattleLog.add_log("情报：%s" % ld.intel_a, Color(0.65, 0.82, 1.0))
 
-	# 鍒锋柊缃戞牸娓叉煋
+	# 刷新网格渲染
 	tile_grid.show_coordinates = true
 	tile_grid.queue_redraw()
 
@@ -695,8 +722,7 @@ func _on_level_started(level_id: int) -> void:
 		u.movement_points = 8
 		u.remaining_movement = 8
 
-	# 单位创建完毕后注册初始数量（用于伤亡率计算）
-	VictoryManager.register_initial_units()
+	_apply_level_start_effects(ld)
 
 	# 手牌和事件
 	CardSystem.initialize_level(ld.wp_starting_cards)
@@ -706,11 +732,121 @@ func _on_level_started(level_id: int) -> void:
 	print("[MainScene] 起手调整至%d张，按 Tab 切换手牌面板" % CardSystem.STARTING_HAND_SIZE)
 	for evt in ld.turn_events:
 		TurnManager.register_turn_event(evt["turn"], evt)
+	# 读取存档时以保存的动态单位和系统状态覆盖关卡初始值。
+	if not GameManager.apply_pending_save(self):
+		VictoryManager.register_initial_units()
 
 	unit_renderer.queue_redraw()
 
 
-## ==================== 杈撳叆 ====================
+func _apply_level_start_effects(level_data) -> void:
+	"""把关卡天气等数据真正应用到单位，而不只停留在数据库描述中。"""
+	var vision_penalty: int = maxi(0, level_data.weather_vision_penalty)
+	for unit in get_tree().get_nodes_in_group("units"):
+		unit.set_meta("base_vision_range", unit.vision_range)
+		if level_data.weather != "clear" and vision_penalty > 0:
+			unit.vision_range = maxi(1, unit.vision_range - vision_penalty)
+	if level_data.weather == "fog":
+		BattleLog.add_log("晨雾笼罩战场：全体视野降低%d格" % vision_penalty, Color(0.7, 0.8, 0.9))
+	elif level_data.weather == "snow":
+		BattleLog.add_log("大雪覆盖战场：全体视野降低%d格，车辆辙印更易暴露。" % vision_penalty, Color(0.8, 0.9, 1.0))
+
+
+func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
+	var description := String(data.get("description", event_id))
+	BattleLog.add_log("事件：%s" % description, Color(1.0, 0.78, 0.3))
+	match event_id:
+		"fog_warning":
+			pass # 初始雾效已在单位生成后应用。
+		"fog_lifts":
+			_restore_unit_vision()
+		"ah64_arrives":
+			_spawn_reinforcement(UnitBase.UnitType.AH64_HELICOPTER, UnitBase.Faction.NATO)
+		"loan_tutorial":
+			_set_action_hint("第2关机制：可用“指挥贷款”立即多抽1张牌，但下回合少抽1张。")
+			_sync_loan_button()
+		"nato_engineer":
+			BattleLog.add_log("北约工兵开始清理通往铁路桥的雷区；工兵进入雷区不会受损。", Color(1.0, 0.58, 0.28))
+		"emi_rise_15":
+			var target_intensity := float(data.get("emi_target", 0.15))
+			EMISystem.change_base_intensity(target_intensity - EMISystem.base_intensity)
+		"reserve_ready":
+			if CardSystem.grant_card("reserve_deployment"):
+				BattleLog.add_log("华约预备队已就绪：“预备队投入”加入手牌。", Color(0.3, 1.0, 0.45))
+		"refugee_convoy":
+			_spawn_unit_near(UnitBase.UnitType.CIVILIAN_CONVOY, UnitBase.Faction.WARSAW_PACT, Vector2i(11, 9))
+		"flood_preview":
+			_set_action_hint("“洪水”干扰即将启动：高EMI会降低命中、侦察并扰乱卡牌。")
+		"emi_surge":
+			EMISystem.change_base_intensity(0.60 - EMISystem.base_intensity)
+		"nato_blind_fire":
+			BattleLog.add_log("北约转入盲射压制，中央走廊将成为高风险区域。", Color(1.0, 0.52, 0.3))
+		"unknown_contacts":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 5))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 8))
+		"forest_unknown":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 3))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(9, 9))
+		"unknown_d":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 3))
+		"unknown_j":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(9, 9))
+		"unknown_e":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(8, 4))
+		"bridge_decision":
+			CardSystem.grant_card("sapper_mines")
+			_set_action_hint("断桥抉择：可用工兵布雷拖延敌军；桥梁取舍将在后续美术/剧情版扩展。")
+		"nato_pontoon":
+			_spawn_reinforcement(UnitBase.UnitType.NATO_ENGINEER, UnitBase.Faction.NATO)
+		"emi_rise":
+			EMISystem.change_base_intensity(float(data.get("emi_delta", 0.05)))
+		"unknown_contact_1":
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 9))
+		"artillery_ready":
+			CardSystem.draw_card(1)
+		_:
+			if event_id.begins_with("emi_rise"):
+				EMISystem.change_base_intensity(float(data.get("emi_delta", 0.05)))
+	unit_renderer.queue_redraw()
+	tile_grid.queue_redraw()
+
+
+func _restore_unit_vision() -> void:
+	for unit in get_tree().get_nodes_in_group("units"):
+		if unit.has_meta("base_vision_range"):
+			unit.vision_range = int(unit.get_meta("base_vision_range"))
+	BattleLog.add_log("晨雾消散：单位视野恢复", Color(0.65, 0.9, 1.0))
+
+
+func _spawn_reinforcement(unit_type: int, faction: int) -> UnitBase:
+	var spawn_cells: Array = GridManager.spawn_nato if faction == UnitBase.Faction.NATO else GridManager.spawn_wp
+	for spawn in spawn_cells:
+		var unit := _spawn_unit_near(unit_type, faction, spawn)
+		if unit:
+			return unit
+	BattleLog.add_log("增援抵达失败：没有可用出生点", Color(1.0, 0.35, 0.35))
+	return null
+
+
+func _spawn_unit_near(unit_type: int, faction: int, preferred: Vector2i) -> UnitBase:
+	var candidates: Array[Vector2i] = [preferred]
+	for cell in GridManager.get_neighbors(preferred.x, preferred.y):
+		candidates.append(Vector2i(cell.x, cell.y))
+	for pos in candidates:
+		var grid_cell = GridManager.get_cell(pos.x, pos.y)
+		if grid_cell == null or not grid_cell.is_passable_for(false) or grid_cell.occupant_unit:
+			continue
+		var unit := UnitDatabase.create_unit(unit_type, faction, pos.x, pos.y, self)
+		unit.set_meta("base_vision_range", unit.vision_range)
+		var ld = LevelDatabase.get_level(GameManager.current_level_id)
+		if ld and ld.weather == "fog" and TurnManager.current_turn < 4:
+			unit.vision_range = maxi(1, unit.vision_range - maxi(0, ld.weather_vision_penalty))
+		BattleLog.add_log("增援抵达：%s (%s)" % [unit.unit_name, GridManager.grid_to_player_coordinate(pos)], Color(1.0, 0.75, 0.25))
+		return unit
+	return null
+
+
+## ==================== 输入 ====================
 
 func _input(event: InputEvent) -> void:
 	if game_over_active:
@@ -796,6 +932,18 @@ func _on_pause_pressed() -> void:
 	_set_game_paused(not is_paused)
 
 
+func _on_save_pressed() -> void:
+	GameManager.save_game(0)
+	BattleLog.add_log("进度已保存", Color(0.65, 1.0, 0.7))
+	if pause_overlay:
+		pause_overlay.show_status("保存成功")
+
+
+func _return_to_main_menu() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+
 func _set_game_paused(paused: bool) -> void:
 	is_paused = paused
 	get_tree().paused = paused
@@ -805,6 +953,7 @@ func _set_game_paused(paused: bool) -> void:
 		pause_button.text = "继续" if paused else "暂停"
 	is_dragging_map = false
 	_sync_move_confirmation_buttons()
+	_sync_loan_button()
 
 
 func _sync_move_confirmation_buttons() -> void:
@@ -855,11 +1004,11 @@ func _clear_pending_move(clear_path_now: bool) -> void:
 
 
 func _handle_key_input(event: InputEventKey) -> void:
-	if event.keycode == KEY_F11 or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
+	if event.is_action_pressed("toggle_fullscreen") or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
 		_toggle_fullscreen()
 		get_viewport().set_input_as_handled()
 		return
-	if event.keycode == KEY_P:
+	if event.is_action_pressed("pause_game"):
 		_set_game_paused(not is_paused)
 		get_viewport().set_input_as_handled()
 		return
@@ -900,7 +1049,7 @@ func _toggle_fullscreen() -> void:
 
 
 func _is_pointer_over_button(pos: Vector2) -> bool:
-	for button in [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button]:
+	for button in [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button, loan_button]:
 		if button and button.visible and button.get_global_rect().has_point(pos):
 			return true
 	return false
@@ -944,17 +1093,35 @@ func _on_left_click(screen_pos: Vector2) -> void:
 
 	var clicked_unit = _get_unit_at(gp.x, gp.y)
 
-	# 1) 点中己方单位 → 选中并显示移动范围
+	# 1) 点中己方单位 → 选中并显示移动与攻击目标
 	if clicked_unit and clicked_unit.faction == UnitBase.Faction.WARSAW_PACT:
 		_clear_pending_move(true)
 		selected_unit = clicked_unit
-		tile_grid.highlight_move_range(clicked_unit)
+		tile_grid.highlight_unit_actions(clicked_unit)
 		unit_renderer.select_unit(clicked_unit)
+		_set_action_hint("%s：点击蓝格规划移动；点击红色敌军下达攻击命令。" % clicked_unit.unit_name)
 		print("[MainScene] 已选中单位")
 		return
 
-	# 2) 已选中己方单位 → WEGO: 计划阶段只下移动指令，攻击在沙盘演示中自动判定
-	#    点击任何格子（含敌方所在格）都尝试寻路；移动时因占用检测会停在敌方前一格
+	# 2) 点击射程与视线内的敌军 → 下达显式攻击指令。
+	if selected_unit and selected_unit.is_alive and clicked_unit and clicked_unit.faction != selected_unit.faction:
+		if selected_unit.can_attack_target(clicked_unit.grid_col, clicked_unit.grid_row):
+			TurnManager.submit_order(selected_unit.unit_id, {
+				"type": "attack",
+				"target_col": clicked_unit.grid_col,
+				"target_row": clicked_unit.grid_row,
+				"attack_type": CombatSystem.AttackType.DIRECT_FIRE,
+			}, true)
+			BattleLog.add_log("已下令：%s 攻击 %s" % [selected_unit.unit_name, clicked_unit.unit_name], Color(1.0, 0.72, 0.45))
+			_set_action_hint("攻击命令已记录；可继续给其他单位下令，或结束计划。")
+			selected_unit = null
+			unit_renderer.deselect_unit()
+			tile_grid.clear_highlights()
+			return
+		_set_action_hint("目标不在射程或视线被阻挡；请先移动接近。")
+		return
+
+	# 3) 点击空格 → 规划移动路径。
 	if selected_unit and selected_unit.is_alive:
 		var path = TilePathfinding.find_path(selected_unit.grid_col, selected_unit.grid_row,
 			gp.x, gp.y, selected_unit, selected_unit.get_effective_movement())
@@ -964,6 +1131,7 @@ func _on_left_click(screen_pos: Vector2) -> void:
 			pending_move_target = gp
 			tile_grid.highlight_path(path)
 			_sync_move_confirmation_buttons()
+			_set_action_hint("路径已规划：点击“确认移动”或按 Enter 提交，右键取消。")
 			print("[MainScene] 待确认移动: %s -> (%d,%d) 路径%d格" % [
 				selected_unit.unit_name, gp.x, gp.y, path.size()])
 			if pending_move_unit:
@@ -974,6 +1142,7 @@ func _on_left_click(screen_pos: Vector2) -> void:
 				selected_unit.unit_name, gp.x, gp.y, path.size()])
 		else:
 			print("[MainScene] 无法到达 (%d,%d)" % [gp.x, gp.y])
+			_set_action_hint("该格无法到达，请选择蓝色高亮格。")
 		selected_unit = null
 		unit_renderer.deselect_unit()
 		# 保留路径高亮，2秒后清除
@@ -1004,6 +1173,11 @@ func _get_unit_at(col: int, row: int) -> UnitBase:
 	return null
 
 
+func _set_action_hint(message: String) -> void:
+	if action_hint_label:
+		action_hint_label.text = message
+
+
 ## ==================== 状态回调 ====================
 
 func _on_state_changed(_old: int, new: int) -> void:
@@ -1021,6 +1195,8 @@ func _on_state_changed(_old: int, new: int) -> void:
 func _on_planning_started(turn: int) -> void:
 	print("[MainScene] 第%d回合计划开始" % turn)
 	BattleLog.add_phase_log("第%d回合 · 计划阶段" % turn)
+	_set_action_hint("选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。")
+	_sync_loan_button()
 	# 重置所有单位移动点数
 	for u in get_tree().get_nodes_in_group("units"):
 		if u.is_alive:
@@ -1029,6 +1205,7 @@ func _on_planning_started(turn: int) -> void:
 func _on_execution_started(turn: int) -> void:
 	print("[MainScene] 第%d回合演算开始" % turn)
 	BattleLog.add_phase_log("第%d回合 · 演算阶段" % turn)
+	_sync_loan_button()
 
 func _on_turn_resolved(turn: int) -> void:
 	print("[MainScene] 第%d回合结算" % turn)
@@ -1053,14 +1230,14 @@ func _on_card_drawn(card) -> void:
 
 
 func _get_game_over_reason() -> String:
-	# 说明
+	# 优先使用胜利管理器记录的正式结算原因。
 	if VictoryManager.last_game_over_reason != "":
 		return VictoryManager.last_game_over_reason
 	return "战斗结束"
 
 
 func _show_game_over_panel(winner_faction: int, reason: String) -> void:
-	# 说明
+	# 结束游戏后解除暂停，避免结算界面无法交互。
 	get_tree().paused = false
 	if game_over_panel:
 		return
@@ -1121,7 +1298,7 @@ func _show_game_over_panel(winner_faction: int, reason: String) -> void:
 		title.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
 	vbox.add_child(title)
 
-	# 鍘熷洜
+	# 结算原因
 	var reason_label = Label.new()
 	reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reason_label.add_theme_font_size_override("font_size", 20)
@@ -1130,7 +1307,7 @@ func _show_game_over_panel(winner_faction: int, reason: String) -> void:
 	vbox.add_child(reason_label)
 
 	# 统计 — 含VP控制信息
-	var vp = VictoryManager._count_vp_control()
+	var vp = VictoryManager.get_vp_control()
 	var stats = Label.new()
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stats.add_theme_font_size_override("font_size", 18)
@@ -1139,11 +1316,19 @@ func _show_game_over_panel(winner_faction: int, reason: String) -> void:
 		TurnManager.current_turn, VictoryManager.max_turns, vp.wp, vp.nato, wp_alive, nato_alive]
 	vbox.add_child(stats)
 
-	# 鎸夐挳
+	# 操作按钮
 	var hbox = HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", 24)
 	vbox.add_child(hbox)
+
+	var next_level_path := "res://scenes/levels/level_%02d.tscn" % (GameManager.current_level_id + 2)
+	if winner_faction == UnitBase.Faction.WARSAW_PACT and ResourceLoader.exists(next_level_path):
+		var next_btn = Button.new()
+		next_btn.text = "进入下一关"
+		next_btn.custom_minimum_size = Vector2(140, 48)
+		next_btn.pressed.connect(_on_next_level_pressed)
+		hbox.add_child(next_btn)
 
 	var restart_btn = Button.new()
 	restart_btn.text = "重新开始"
@@ -1152,7 +1337,7 @@ func _show_game_over_panel(winner_faction: int, reason: String) -> void:
 	hbox.add_child(restart_btn)
 
 	var quit_btn = Button.new()
-	quit_btn.text = "退出游戏"
+	quit_btn.text = "返回主菜单"
 	quit_btn.custom_minimum_size = Vector2(140, 48)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	hbox.add_child(quit_btn)
@@ -1172,9 +1357,19 @@ func _on_restart_pressed() -> void:
 	get_tree().reload_current_scene()
 
 
+func _on_next_level_pressed() -> void:
+	var next_level_id := GameManager.current_level_id + 1
+	var packed := load("res://scenes/MainScene.tscn") as PackedScene
+	var next_scene = packed.instantiate()
+	next_scene.startup_level_id = next_level_id
+	var root := get_tree().root
+	root.add_child(next_scene)
+	get_tree().current_scene = next_scene
+	queue_free()
+
+
 func _on_quit_pressed() -> void:
-	# 说明
-	get_tree().quit()
+	_return_to_main_menu()
 
 
 func _on_unit_step(_uid: int, _col: int, _row: int) -> void:
@@ -1185,4 +1380,3 @@ func _on_unit_step(_uid: int, _col: int, _row: int) -> void:
 
 func _on_unit_move_completed(_uid: int, _col: int, _row: int) -> void:
 	unit_renderer.queue_redraw()
-
