@@ -135,6 +135,16 @@ func validate_path(unit_id: int, path: Array) -> bool:
 var mine_cells: Array = []
 
 
+func serialize() -> Dictionary:
+	return {"mines": mine_cells.map(func(p): return [p.x, p.y])}
+
+
+func deserialize(data: Dictionary) -> void:
+	mine_cells.clear()
+	for m in data.get("mines", []):
+		mine_cells.append(Vector2i(m[0], m[1]))
+
+
 func reset_for_level() -> void:
 	mine_cells.clear()
 

@@ -152,6 +152,8 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 
 	# 应用伤害
 	target.take_damage(base_damage, attacker_id)
+	# 受创掉士气（修复: 士气系统原无受创反馈, 按伤害比例扣 上限10至少1）
+	MoraleSystem.modify_unit_morale(target.unit_id, -clampi(int(base_damage / 12.0), 1, 10), "受创")
 	var was_destroyed = false
 	if not target.is_alive:
 		result["destroyed"] = true
@@ -284,6 +286,19 @@ func _calculate_damage(attacker: UnitBase, target: UnitBase,
 
 ## === 烟雾效果 ===
 var smoke_cells: Dictionary = {}  # {cell_key: remaining_turns}
+
+
+func serialize() -> Dictionary:
+	var smokes: Array = []
+	for key in smoke_cells:
+		smokes.append({"pos": key, "turns": smoke_cells[key]})
+	return {"smoke": smokes}
+
+
+func deserialize(data: Dictionary) -> void:
+	smoke_cells.clear()
+	for s in data.get("smoke", []):
+		smoke_cells[s["pos"]] = s["turns"]
 
 func _get_smoke_penalty(col: int, row: int) -> float:
 	var key = "%d,%d" % [col, row]

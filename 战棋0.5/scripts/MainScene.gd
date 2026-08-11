@@ -1240,6 +1240,16 @@ func _on_planning_started(turn: int) -> void:
 	if card_ui.selected_card_index >= CardSystem.hand.size():
 		card_ui.selected_card_index = -1
 		card_ui.queue_redraw()
+	# 指挥鼓舞（修复: rally 原未接入）— 指挥组每回合鼓舞士气偏低(≤60)的相邻己方单位
+	for u in get_tree().get_nodes_in_group("units"):
+		if not (u.is_alive and u.is_command and u.faction == UnitBase.Faction.WARSAW_PACT):
+			continue
+		for v in get_tree().get_nodes_in_group("units"):
+			if not (v.is_alive and v.faction == UnitBase.Faction.WARSAW_PACT and v != u):
+				continue
+			if absi(v.grid_col - u.grid_col) + absi(v.grid_row - u.grid_row) <= 2 \
+					and MoraleSystem.get_unit_morale(v.unit_id) <= 60:
+				MoraleSystem.apply_rally(v.unit_id)
 	# 教学引导推进（第1回合开始 / 第2回合完成）
 	if tutorial:
 		if turn == 1:

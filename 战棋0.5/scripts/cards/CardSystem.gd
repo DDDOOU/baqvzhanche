@@ -645,9 +645,9 @@ func _reshuffle_discard() -> void:
 ## === 序列化 ===
 func serialize() -> Dictionary:
 	return {
-		"hand_ids": hand.map(func(c): return c.card_id),
-		"deck_ids": deck.map(func(c): return c.card_id),
-		"discard_ids": discard_pile.map(func(c): return c.card_id),
+		"hand": _cards_to_state(hand),
+		"deck": _cards_to_state(deck),
+		"discard": _cards_to_state(discard_pile),
 		"loan_available": loan_available,
 		"next_turn_penalty": next_turn_card_penalty
 	}
@@ -659,4 +659,40 @@ func deserialize(data: Dictionary) -> void:
 	discard_pile.clear()
 	loan_available = data.get("loan_available", true)
 	next_turn_card_penalty = data.get("next_turn_penalty", 0)
-	print("[CardSystem] 反序列化完成")
+	# 修复: 必须重建卡牌对象, 否则读档后手牌/牌库为空, 卡牌系统整体失效
+	hand = _cards_from_state(data.get("hand", []))
+	deck = _cards_from_state(data.get("deck", []))
+	discard_pile = _cards_from_state(data.get("discard", []))
+	# 兼容旧存档（仅 id 列表）
+	if hand.is_empty() and deck.is_empty() and data.has("hand_ids"):
+		hand = _cards_from_ids(data.get("hand_ids", []))
+		deck = _cards_from_ids(data.get("deck_ids", []))
+		discard_pile = _cards_from_ids(data.get("discard_ids", []))
+	print("[CardSystem] 反序列化完成 — 手牌%d/牌库%d/弃牌%d" % [hand.size(), deck.size(), discard_pile.size()])
+
+
+func _cards_to_state(list: Array[CardInstance]) -> Array:
+	var out: Array = []
+	for c in list:
+		out.append({"id": c.card_id, "cd": c.cooldown, "scrambled": c.is_scrambled})
+	return out
+
+
+func _cards_from_state(states: Array) -> Array[CardInstance]:
+	var out: Array[CardInstance] = []
+	for s in states:
+		var c := CardInstance.new()
+		c.card_id = s.get("id", "")
+		c.cooldown = int(s.get("cd", 0))
+		c.is_scrambled = s.get("scrambled", false)
+		out.append(c)
+	return out
+
+
+func _cards_from_ids(ids: Array) -> Array[CardInstance]:
+	var out: Array[CardInstance] = []
+	for id in ids:
+		var c := CardInstance.new()
+		c.card_id = id
+		out.append(c)
+	return out

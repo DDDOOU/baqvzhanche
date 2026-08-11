@@ -43,6 +43,7 @@ var execution_skip_requested: bool = false
 var pending_save_data: Dictionary = {}
 var _intro_confirm_requested: bool = false   # 简报确认标志（LEVEL_INTRO 等待玩家点击）
 var tutorial_done: bool = false              # 教学引导是否已完成/跳过（本次运行内有效）
+var _pending_game_over: Dictionary = {}      # 即时胜负挂起 {winner, reason} — 演绎结束后统一结算
 
 ## === Bug追踪与版本控制 ===
 var bug_tracker: Dictionary = {}     # bug_id -> {description, status, fix_version}
@@ -166,21 +167,44 @@ func _finish_execution() -> void:
 	print("[GameManager] 沙盘演绎结束，回合结算")
 	TurnManager.resolve_turn()
 
+	# 0. 挂起的即时胜负（指挥中心被毁/全歼，经 game_over 信号登记）优先结算
+	if not _pending_game_over.is_empty():
+		var winner: int = _pending_game_over["winner"]
+		var reason: String = _pending_game_over["reason"]
+		_pending_game_over.clear()
+		var is_win = winner == UnitBase.Faction.WARSAW_PACT
+		var result = {
+			"level_id": current_level_id,
+			"completed": true,
+			"victory": is_win,
+			"winner_faction": winner,
+			"reason": reason,
+			"turn": TurnManager.current_turn,
+			"morale_delta": 0,
+			"kills": 0,
+			"victory_tier": "victory" if is_win else "defeat"
+		}
+		BattleLog.add_log("━━━ %s ━━━" % reason, Color.GOLD)
+		level_completed.emit(current_level_id, result)
+		_apply_level_result_and_end(result)
+		return
+
 	# 1. 先检查即时胜负（指挥中心被毁/全歼）
 	var instant = VictoryManager.check_victory_now()
 	if instant.game_over:
 		var is_win = instant.winner == UnitBase.Faction.WARSAW_PACT
 		var result = {
+			"level_id": current_level_id,
 			"completed": true,
 			"victory": is_win,
 			"winner_faction": instant.winner,
 			"reason": instant.reason,
 			"turn": TurnManager.current_turn,
 			"morale_delta": 0,
+			"kills": 0,
 			"victory_tier": "victory" if is_win else "defeat"
 		}
 		BattleLog.add_log("━━━ %s ━━━" % instant.reason, Color.GOLD)
-		VictoryManager.finish_game(instant.winner, instant.reason)
 		level_completed.emit(current_level_id, result)
 		_apply_level_result_and_end(result)
 		return
@@ -191,8 +215,8 @@ func _finish_execution() -> void:
 		var winner = UnitBase.Faction.WARSAW_PACT if level_result.get("victory", false) else UnitBase.Faction.NATO
 		level_result["winner_faction"] = winner
 		level_result["turn"] = TurnManager.current_turn
+		level_result["level_id"] = current_level_id
 		BattleLog.add_log("━━━ %s ━━━" % level_result.get("reason", ""), Color.GOLD)
-		VictoryManager.finish_game(winner, level_result.get("reason", ""))
 		level_completed.emit(current_level_id, level_result)
 		_apply_level_result_and_end(level_result)
 	else:
@@ -229,6 +253,7 @@ func start_level(level_id: int) -> void:
 	VictoryManager.reset()
 	UnitDatabase.reset_for_level()
 	MovementSystem.reset_for_level()
+	CampaignManager.reset_level_kills()
 	planning_timer = 0.0
 	execution_timer = 0.0
 	execution_skip_requested = false
@@ -310,26 +335,13 @@ func _initialize_subsystems() -> void:
 
 
 func _on_game_over(winner_faction: int, reason: String) -> void:
-	"""任意一方被全歼时触发"""
-	if current_state in [GameState.VICTORY, GameState.DEFEAT]:
+	"""任意一方被全歼时触发 — 只登记挂起，等演绎结束后在 _finish_execution 统一结算
+	（修复: 原实现直接 emit+切状态, 与 _finish_execution 双路径导致 level_completed 双发射、
+	  result 缺 level_id 使战役进度错乱）"""
+	if current_state in [GameState.VICTORY, GameState.DEFEAT] or not _pending_game_over.is_empty():
 		return
-
-	var is_player_victory = (winner_faction == UnitBase.Faction.WARSAW_PACT)
-	var result = {
-		"completed": true,
-		"victory": is_player_victory,
-		"winner_faction": winner_faction,
-		"reason": reason,
-		"turn": TurnManager.current_turn
-	}
-
-	level_completed.emit(current_level_id, result)
-	print("[GameManager] 关卡结束 — %s" % reason)
-
-	if is_player_victory:
-		change_state(GameState.VICTORY)
-	else:
-		change_state(GameState.DEFEAT)
+	_pending_game_over = {"winner": winner_faction, "reason": reason}
+	print("[GameManager] 胜负已定(%s)，等待演绎结束统一结算" % reason)
 
 
 ## === Bug追踪工具 ===
@@ -370,6 +382,8 @@ func save_game(slot: int) -> void:
 		"emi": EMISystem.serialize(),
 		"morale": MoraleSystem.serialize(),
 		"cards": CardSystem.serialize(),
+		"mines": MovementSystem.serialize(),
+		"smoke": CombatSystem.serialize(),
 		"timestamp": Time.get_datetime_string_from_system()
 	}
 	var file = FileAccess.open("user://save_%d.json" % slot, FileAccess.WRITE)
@@ -423,6 +437,8 @@ func apply_pending_save(parent_node: Node) -> bool:
 	EMISystem.deserialize(data.get("emi", {}))
 	MoraleSystem.deserialize(data.get("morale", {}))
 	CardSystem.deserialize(data.get("cards", {}))
+	MovementSystem.deserialize(data.get("mines", {}))
+	CombatSystem.deserialize(data.get("smoke", {}))
 	TurnManager.deserialize(data.get("turn", {}))
 	VictoryManager.register_initial_units()
 	print("[GameManager] 已恢复第%d关第%d回合，单位%d支" % [

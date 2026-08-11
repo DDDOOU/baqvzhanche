@@ -13,6 +13,7 @@ var campaign_morale: int = 80          # 累计士气 (0-100)
 var campaign_friendly_fire: int = 0   # 累计误伤百分比 (0-100)
 var campaign_loans: int = 0           # 累计指挥贷款 (0-50)
 var campaign_kills: int = 0           # 累计击杀数
+var _level_kills: int = 0             # 本关击杀数（unit_destroyed 实时累计, 修复原扫描尸体恒0）
 var current_act: int = 1              # 当前幕 (1-3)
 var levels_completed: Array[int] = [] # 已完成的关卡ID
 var level_results: Dictionary = {}    # level_id → result_data
@@ -38,6 +39,8 @@ signal misha_event_triggered(event_type: String)
 
 func _ready() -> void:
 	print("[CampaignManager] 战役管理器就绪 — 初始士气: %d" % campaign_morale)
+	# 击杀实时累计（修复: 原 _count_kills_this_level 扫描已释放节点恒为0）
+	CombatSystem.unit_destroyed.connect(_on_unit_destroyed)
 
 
 ## === 关卡初始化与结算 ===
@@ -188,24 +191,31 @@ func get_morale_tier_name() -> String:
 		_: return "崩溃"
 
 
+func _on_unit_destroyed(unit_id: int, _killer_id: int) -> void:
+	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
+		if unit.unit_id == unit_id and unit.faction == UnitBase.Faction.NATO:
+			_level_kills += 1
+			return
+
+
+func reset_level_kills() -> void:
+	_level_kills = 0
+
+
 func check_level_completion(level_id: int) -> Dictionary:
 	"""检查关卡是否达到完成条件 — 委托给 VictoryManager 检查VP和回合数"""
 	var turn_result = VictoryManager.check_turn_end_victory(TurnManager.current_turn)
 	if turn_result.completed:
 		# 关卡结束，补充战役数据
 		turn_result["level_id"] = level_id
-		turn_result["kills"] = _count_kills_this_level()
+		turn_result["kills"] = _level_kills
 		return turn_result
 	return {"completed": false, "level_id": level_id}
 
 
 func _count_kills_this_level() -> int:
-	"""统计本关击杀数"""
-	var nato_dead = 0
-	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
-		if unit.faction == UnitBase.Faction.NATO and not unit.is_alive:
-			nato_dead += 1
-	return nato_dead
+	"""（已废弃: 扫描已释放节点恒为0, 击杀由 unit_destroyed 信号实时累计 _level_kills）"""
+	return _level_kills
 
 
 ## === 序列化 ===

@@ -116,6 +116,20 @@ func start_execution_phase() -> void:
 	print("[TurnManager] === 第 %d 回合 沙盘演绎开始 ===" % current_turn)
 	execution_phase_started.emit(current_turn)
 
+	# 恐慌判定（修复: 溃逃机制原未接入战斗）— 动摇/崩溃单位掷骰, 溃逃则本回合命令作废
+	var flee_units: Array[int] = []
+	for uid in player_orders.keys():
+		if MoraleSystem.check_flee(uid):
+			flee_units.append(uid)
+	for uid in ai_orders.keys():
+		if MoraleSystem.check_flee(uid):
+			flee_units.append(uid)
+	for uid in flee_units:
+		player_orders.erase(uid)
+		ai_orders.erase(uid)
+		if BattleLog:
+			BattleLog.add_log("[恐慌] 单位 %d 陷入恐慌, 本回合命令作废!" % uid, Color(1.0, 0.6, 0.3))
+
 	# WEGO 同时结算 — 四阶段:
 	# 1) 合并双方移动指令，按速度排序逐个执行（模拟同时移动）
 	await _execute_all_moves_combined()
