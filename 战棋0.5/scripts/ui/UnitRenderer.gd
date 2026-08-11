@@ -14,6 +14,41 @@ const FACTION_COLORS: Dictionary = {
 	UnitBase.Faction.NATO:         Color(0.85, 0.20, 0.20),  # 北约红
 }
 
+## === 单位贴图（苏式粗犷风令牌，assets/units/） ===
+## 键为 UnitBase.UnitType 枚举名，值为 res:// 贴图路径。
+## 图标布局（01_单位令牌.png 九宫格）：00/10/21=步兵, 01/20=坦克, 11=侦察,
+## 22=直升机, 02=装甲车/步战, 12=火炮/防空。
+const UNIT_ICON_PATHS: Dictionary = {
+	UnitBase.UnitType.INFANTRY_SQUAD: "res://assets/units/unit_brutalist_00.png",
+	UnitBase.UnitType.MOTOR_RIFLE: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.T72B_TANK: "res://assets/units/unit_brutalist_01.png",
+	UnitBase.UnitType.BMP2_IFV: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.BM21_ROCKET: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.SA13_AA: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.RECON_PLATOON: "res://assets/units/unit_brutalist_11.png",
+	UnitBase.UnitType.SAPPERS: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.COMMAND_ELEMENT: "res://assets/units/unit_brutalist_11.png",
+	UnitBase.UnitType.RESERVE: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.M1A1_TANK: "res://assets/units/unit_brutalist_01.png",
+	UnitBase.UnitType.M2_IFV: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.MECH_INFANTRY: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.AH64_HELICOPTER: "res://assets/units/unit_brutalist_22.png",
+	UnitBase.UnitType.NATO_ENGINEER: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.CIVILIAN_CONVOY: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.UNKNOWN_CONTACT: "res://assets/units/unit_brutalist_11.png",
+	UnitBase.UnitType.ATGM_TEAM: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.BRDM2_RECON: "res://assets/units/unit_brutalist_11.png",
+	UnitBase.UnitType.ZSU23_AA: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.GVOZDIKA_ARTILLERY: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.M901_ITV: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.M109_ARTILLERY: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.M113_APC: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.NATO_RECON_SECTION: "res://assets/units/unit_brutalist_11.png",
+}
+
+## 贴图缓存（路径 → Texture2D）
+var _icon_cache: Dictionary = {}
+
 const UNIT_SHAPES: Dictionary = {
 	"infantry": "◆",       # 菱形
 	"armor": "■",          # 方块
@@ -103,22 +138,21 @@ func _draw_unit(unit: UnitBase, pos: Vector2) -> void:
 	"""绘制单个单位"""
 	# 单位底色
 	var faction_color = FACTION_COLORS.get(unit.faction, Color.GRAY)
-	var shape = UNIT_SHAPES.get(UnitDatabase.get_unit_class(unit.unit_type), "■")
 
 	# 尺寸跟随格子大小缩放，避免越界：圆占格子约 78%，留出边距
 	var ts: float = GridManager.ISO_TILE_WIDTH * camera_zoom
 	var radius: float = GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.38
-	var font_size: int = int(max(8.0, GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.38))
 
-	# 绘制单位图标（圆形 + 形状字符）
+	# 绘制单位图标（圆形 + 贴图令牌）
 	draw_circle(pos, radius, faction_color)
 	draw_circle(pos, radius, Color.WHITE, false, max(1.0, ts * 0.03))
 
-	# 单位形状标识（居中）
-	draw_string(ThemeDB.fallback_font,
-		pos + Vector2(-font_size * 0.5, font_size * 0.4),
-		shape,
-		HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+	# 单位贴图（居中，直径约为圆的 60%，露出阵营色环）
+	var icon := _get_unit_icon(unit)
+	if icon != null:
+		var icon_size := radius * 1.2
+		var rect := Rect2(pos - Vector2(icon_size * 0.5, icon_size * 0.5), Vector2(icon_size, icon_size))
+		draw_texture_rect(icon, rect, false)
 
 	# 生命条
 	if show_health_bars:
@@ -131,6 +165,19 @@ func _draw_unit(unit: UnitBase, pos: Vector2) -> void:
 	# 选中高亮
 	if unit == selected_unit:
 		draw_circle(pos, radius + max(2.0, ts * 0.06), Color.YELLOW, false, max(1.5, ts * 0.05))
+
+
+## === 贴图加载 ===
+func _get_unit_icon(unit: UnitBase) -> Texture2D:
+	var path: String = UNIT_ICON_PATHS.get(unit.unit_type, "")
+	if path.is_empty():
+		return null
+	if _icon_cache.has(path):
+		return _icon_cache[path]
+	var tex: Texture2D = load(path)
+	if tex != null:
+		_icon_cache[path] = tex
+	return tex
 
 
 func _draw_health_bar(pos: Vector2, unit: UnitBase, ts: float, radius: float) -> void:
