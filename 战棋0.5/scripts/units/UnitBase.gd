@@ -11,7 +11,8 @@ extends Node2D
 ## === 阵营枚举 ===
 enum Faction {
 	WARSAW_PACT,  # 华约（玩家）
-	NATO          # 北约（AI敌方）
+	NATO,         # 北约（AI敌方）
+	NEUTRAL       # 中立（平民车队/未知接触）
 }
 
 ## === 单位类型 ===
@@ -260,10 +261,14 @@ func is_side_armor(col: int, row: int) -> bool:
 		# 2×2坦克单位：判断攻击方向
 		var dx = col - grid_col
 		var dy = row - grid_row
-		# 简化：如果攻击来自侧方或后方，返回true
+		if dx == 0 and dy == 0:
+			return false
 		var angle = atan2(dy, dx)
-		var diff = abs(fposmod(angle - facing_angle, TAU) - PI)
-		return diff > PI / 3.0  # 超过60度偏移视为侧面
+		# 与正面朝向的夹角（0~PI），修复: 原公式 abs(fposmod(angle-facing,TAU)-PI)
+		# 度量的是"与正后方的夹角"，正面攻击反而被判为侧面。
+		var off := fposmod(angle - facing_angle, TAU)
+		off = minf(off, TAU - off)
+		return off > PI / 3.0  # 超过60度偏移视为侧后
 	return false
 
 

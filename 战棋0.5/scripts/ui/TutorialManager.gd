@@ -36,7 +36,6 @@ func setup() -> void:
 	panel.offset_right = 340
 	panel.offset_top = -96
 	panel.offset_bottom = -16
-	panel.visible = false
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.13, 0.92)
 	style.border_width_left = 2
@@ -75,6 +74,7 @@ func setup() -> void:
 	skip_btn.offset_bottom = -8
 	skip_btn.pressed.connect(_finish)
 	panel.add_child(skip_btn)
+	_layer.visible = false  # 初始隐藏整层；_advance 时显示
 
 
 func notify(event: String) -> void:

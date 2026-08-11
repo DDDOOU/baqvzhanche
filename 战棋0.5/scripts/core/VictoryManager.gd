@@ -219,8 +219,10 @@ func _count_vp_control() -> Dictionary:
 		if cell.occupant_unit and cell.occupant_unit.is_alive:
 			if cell.occupant_unit.faction == UnitBase.Faction.WARSAW_PACT:
 				wp_vp += 1
-			else:
+			elif cell.occupant_unit.faction == UnitBase.Faction.NATO:
 				nato_vp += 1
+			else:
+				neutral += 1  # 中立单位（平民）不控制 VP
 		else:
 			neutral += 1
 

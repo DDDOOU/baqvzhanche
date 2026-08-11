@@ -56,8 +56,12 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	# 查找目标
 	var target = _get_unit_at(target_col, target_row)
 	if not target:
-		if attack_type == AttackType.BLIND_FIRE:
-			result["miss"] = true
+		# 修复: 空目标 = 开火但落空——照常扣弹药并发信号（战报记录"落空"），不再静默消失
+		result["miss"] = true
+		result["hit_chance"] = 0.5
+		if not is_card_attack and attacker:
+			attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
+		attack_executed.emit(attacker_id, target_col, target_row, result)
 		return result
 	# 直射类命令在演算时再次校验射程/视线，防止目标移动后隔图开火。
 	if not is_card_attack and attack_type in [AttackType.DIRECT_FIRE, AttackType.ANTI_AIR, AttackType.CLOSE_ASSAULT]:
@@ -198,8 +202,8 @@ func _calculate_hit_chance(attacker: UnitBase, target: UnitBase,
 	if target.is_hidden:
 		chance -= 0.20
 
-	# 目标士气影响防御
-	chance += MoraleSystem.get_defense_modifier(target.unit_id)
+	# 目标士气影响防御（defense_bonus 为负=防御下降→更易命中, 故用 -=）
+	chance -= MoraleSystem.get_defense_modifier(target.unit_id)
 
 	# === 攻击类型修正 ===
 	match attack_type:

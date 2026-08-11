@@ -49,10 +49,14 @@ func initialize_level(level_data) -> void:
 
 
 func apply_level_result(result: Dictionary) -> void:
-	"""应用关卡结算结果到战役状态"""
+	"""应用关卡结算结果到战役状态（重打同一关时先回滚旧结算，避免重复累计）"""
 	var level_id = result.get("level_id", 0)
-	levels_completed.append(level_id)
+	# 修复: 该关已有结算记录（重试/重打）→ 先回滚旧结果再应用新结果
+	if level_results.has(level_id):
+		_rollback_level_result(level_results[level_id])
+		levels_completed.erase(level_id)
 	level_results[level_id] = result
+	levels_completed.append(level_id)
 
 	# 士气修正
 	var morale_delta = result.get("morale_delta", 0)
@@ -66,11 +70,10 @@ func apply_level_result(result: Dictionary) -> void:
 	if ff > 0:
 		friendly_fire_occurred.emit(campaign_friendly_fire)
 
-	# 贷款累计
+	# 贷款累计（统一走 add_loan 封顶）
 	var loan = result.get("loan_used", 0)
-	campaign_loans = mini(campaign_loans + loan, 50)
 	if loan > 0:
-		loan_taken.emit(loan, campaign_loans)
+		add_loan(loan)
 
 	# 击杀累计
 	campaign_kills += result.get("kills", 0)
@@ -97,6 +100,26 @@ func apply_level_result(result: Dictionary) -> void:
 	])
 
 
+func add_loan(amount: int) -> void:
+	"""统一贷款累计入口（封顶50），卡牌与关卡结算共用"""
+	campaign_loans = mini(campaign_loans + amount, 50)
+	loan_taken.emit(amount, campaign_loans)
+
+
+func _rollback_level_result(old: Dictionary) -> void:
+	"""回滚某关的旧结算（重试/重打时调用）"""
+	campaign_morale = clampi(campaign_morale - old.get("morale_delta", 0), 0, 100)
+	campaign_friendly_fire = maxi(0, campaign_friendly_fire - old.get("friendly_fire_added", 0))
+	campaign_loans = maxi(0, campaign_loans - old.get("loan_used", 0))
+	campaign_kills = maxi(0, campaign_kills - old.get("kills", 0))
+	helicopter_kills = maxi(0, helicopter_kills - old.get("heli_kills", 0))
+	civilian_casualties = maxi(0, civilian_casualties - old.get("civilian_casualties", 0))
+	if old.get("misha_wounded", false):
+		misha_morale = mini(100, misha_morale + 30)
+	if old.get("misha_squad_lost", false):
+		misha_alive = true
+
+
 func _update_act() -> void:
 	var new_act = 1
 	if levels_completed.size() >= 3:
@@ -115,7 +138,7 @@ func get_final_result() -> Dictionary:
 	var ending_type = ""
 	var description = ""
 
-	if not misha_alive or campaign_loans > 50:
+	if not misha_alive or campaign_loans >= 50:
 		# 坐标归零：无人归来
 		ending_type = "zero_coordinates"
 		is_victory = true  # 军事胜利，但...

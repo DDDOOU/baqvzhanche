@@ -265,6 +265,9 @@ func _start_level_intro() -> void:
 	VictoryManager.setup_level(level_data)
 	# 等待玩家阅读任务简报并点击"开始行动"（60 秒兜底，防 UI 异常卡死关卡）
 	_intro_confirm_requested = false
+	# 修复: 先断开旧连接再连接, 防止跨关累积残留（60s 兜底路径不会 emit, ONE_SHOT 不自动断开）
+	if intro_confirmed.is_connected(_on_intro_confirmed):
+		intro_confirmed.disconnect(_on_intro_confirmed)
 	intro_confirmed.connect(_on_intro_confirmed, CONNECT_ONE_SHOT)
 	var confirm_timeout := get_tree().create_timer(60.0)
 	while not _intro_confirm_requested:

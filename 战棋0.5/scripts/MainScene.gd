@@ -731,15 +731,11 @@ func _on_level_started(level_id: int) -> void:
 	tile_grid.show_coordinates = true
 	tile_grid.queue_redraw()
 
-	# 生成单位
+	# 生成单位（移动力取自 UnitDatabase 配置，不覆盖）
 	for cfg in ld.wp_units:
-		var u = UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.WARSAW_PACT, cfg["col"], cfg["row"], self)
-		u.movement_points = 10
-		u.remaining_movement = 10
+		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.WARSAW_PACT, cfg["col"], cfg["row"], self)
 	for cfg in ld.nato_units:
-		var u = UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.NATO, cfg["col"], cfg["row"], self)
-		u.movement_points = 8
-		u.remaining_movement = 8
+		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.NATO, cfg["col"], cfg["row"], self)
 
 	_apply_level_start_effects(ld)
 
@@ -793,7 +789,7 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 			if CardSystem.grant_card("reserve_deployment"):
 				BattleLog.add_log("华约预备队已就绪：“预备队投入”加入手牌。", Color(0.3, 1.0, 0.45))
 		"refugee_convoy":
-			_spawn_unit_near(UnitBase.UnitType.CIVILIAN_CONVOY, UnitBase.Faction.WARSAW_PACT, Vector2i(11, 9))
+			_spawn_unit_near(UnitBase.UnitType.CIVILIAN_CONVOY, UnitBase.Faction.NEUTRAL, Vector2i(11, 9))
 		"flood_preview":
 			_set_action_hint("“洪水”干扰即将启动：高EMI会降低命中、侦察并扰乱卡牌。")
 		"emi_surge":
@@ -801,17 +797,17 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 		"nato_blind_fire":
 			BattleLog.add_log("北约转入盲射压制，中央走廊将成为高风险区域。", Color(1.0, 0.52, 0.3))
 		"unknown_contacts":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 5))
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 8))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 5))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 8))
 		"forest_unknown":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 3))
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(9, 9))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 3))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(9, 9))
 		"unknown_d":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 3))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 3))
 		"unknown_j":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(9, 9))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(9, 9))
 		"unknown_e":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(8, 4))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(8, 4))
 		"bridge_decision":
 			CardSystem.grant_card("sapper_mines")
 			_set_action_hint("断桥抉择：可用工兵布雷拖延敌军；桥梁取舍将在后续美术/剧情版扩展。")
@@ -820,7 +816,7 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 		"emi_rise":
 			EMISystem.change_base_intensity(float(data.get("emi_delta", 0.05)))
 		"unknown_contact_1":
-			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NATO, Vector2i(10, 9))
+			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 9))
 		"artillery_ready":
 			CardSystem.draw_card(1)
 		_:
@@ -976,7 +972,8 @@ func _set_game_paused(paused: bool) -> void:
 
 
 func _sync_move_confirmation_buttons() -> void:
-	var has_pending := pending_move_unit != null and not pending_move_path.is_empty()
+	var can_order := GameManager.current_state == GameManager.GameState.PLANNING_PHASE and not TurnManager.orders_locked
+	var has_pending := can_order and pending_move_unit != null and not pending_move_path.is_empty()
 	if confirm_move_button:
 		confirm_move_button.visible = has_pending
 		confirm_move_button.disabled = is_paused
@@ -991,6 +988,12 @@ func _sync_move_confirmation_buttons() -> void:
 
 func _on_confirm_move_pressed() -> void:
 	if is_paused or pending_move_unit == null or pending_move_path.is_empty():
+		return
+	# 修复: 计划已锁定/已进入演算时提交无效, 直接放弃并清空, 避免静默吞指令
+	if GameManager.current_state != GameManager.GameState.PLANNING_PHASE or TurnManager.orders_locked:
+		_clear_pending_move(true)
+		selected_unit = null
+		unit_renderer.deselect_unit()
 		return
 	TurnManager.submit_order(pending_move_unit.unit_id, {"type": "move", "path": pending_move_path}, true)
 	print("[MainScene] 确认移动: %s -> (%d,%d)，路径%d格" % [
@@ -1104,8 +1107,8 @@ func _on_left_click(screen_pos: Vector2) -> void:
 	if not GridManager.is_valid_cell(gp.x, gp.y):
 		return
 
-	# 如果有选中卡牌 → 使用卡牌
-	if card_ui.selected_card_index >= 0:
+	# 如果有选中卡牌 → 使用卡牌（索引需在界内：贷款惩罚/弃牌可能使手牌少于选中索引）
+	if card_ui.selected_card_index >= 0 and card_ui.selected_card_index < CardSystem.hand.size():
 		var card = CardSystem.hand[card_ui.selected_card_index]
 		var cells := _get_card_effect_cells(card.card_id, gp)
 		var color := _get_card_highlight_color(card)
@@ -1142,6 +1145,7 @@ func _on_left_click(screen_pos: Vector2) -> void:
 			selected_unit = null
 			unit_renderer.deselect_unit()
 			tile_grid.clear_highlights()
+			_clear_pending_move(false)   # 修复: 攻击提交后清掉残留的移动规划, 防止旧路径覆盖攻击指令
 			if tutorial:
 				tutorial.notify("order_submitted")
 			SoundManager.play("tank_fire", -4.0)
@@ -1232,6 +1236,10 @@ func _on_planning_started(turn: int) -> void:
 	BattleLog.add_phase_log("第%d回合 · 计划阶段" % turn)
 	_set_action_hint("选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。")
 	_sync_loan_button()
+	# 重置越界的卡牌选中索引（贷款惩罚/弃牌后手牌可能变少）
+	if card_ui.selected_card_index >= CardSystem.hand.size():
+		card_ui.selected_card_index = -1
+		card_ui.queue_redraw()
 	# 教学引导推进（第1回合开始 / 第2回合完成）
 	if tutorial:
 		if turn == 1:
@@ -1520,13 +1528,17 @@ func _on_restart_pressed() -> void:
 
 func _on_next_level_pressed() -> void:
 	var next_level_id := GameManager.current_level_id + 1
+	# 修复: 先移出并释放旧场景再启动新场景——旧场景残留的 level_started 连接
+	# 会响应新场景启动信号, 导致单位双倍生成、register_initial_units 计数翻倍
+	get_tree().root.remove_child(self)
+	queue_free()
+	await get_tree().create_timer(0.1).timeout
 	var packed := load("res://scenes/MainScene.tscn") as PackedScene
 	var next_scene = packed.instantiate()
 	next_scene.startup_level_id = next_level_id
 	var root := get_tree().root
 	root.add_child(next_scene)
 	get_tree().current_scene = next_scene
-	queue_free()
 
 
 func _on_quit_pressed() -> void:

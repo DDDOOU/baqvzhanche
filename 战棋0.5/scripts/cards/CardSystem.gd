@@ -47,7 +47,7 @@ var fortify_buffs: Dictionary = {}       # "col,row" → defense_bonus
 var radio_silence_active: bool = false
 
 ## === 断电debuff ===
-var power_cut_units: Dictionary = {}    # unit_id → remaining_turns
+var power_cut_units: Dictionary = {}    # unit_id → {turns: int, orig_accuracy: float}
 
 ## === 延迟卡牌效果（计划阶段标记，演绎阶段结算） ===
 var pending_card_effects: Array = []     # [{card_id, card_name, target_col, target_row, data}]
@@ -299,8 +299,8 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 			var cell = GridManager.get_cell(target_col, target_row)
 			if cell and cell.occupant_unit and cell.occupant_unit.faction == UnitBase.Faction.NATO:
 				var enemy = cell.occupant_unit
-				power_cut_units[enemy.unit_id] = 2
-				# 降低敌方命中率
+				power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
+				# 降低敌方命中率（到期在 tick_cooldowns 恢复）
 				enemy.accuracy *= 0.5
 				BattleLog.add_log("[卡牌] 断电: 「%s」电磁设备失效2回合" % enemy.unit_name, Color(0.8, 0.4, 1.0))
 				print("[CardSystem] 断电生效: 敌方单位%d" % enemy.unit_id)
@@ -385,7 +385,7 @@ func resolve_pending_card_effects() -> void:
 				var cell = GridManager.get_cell(tc, tr)
 				if cell and cell.occupant_unit and cell.occupant_unit.faction == UnitBase.Faction.NATO:
 					var enemy = cell.occupant_unit
-					power_cut_units[enemy.unit_id] = 2
+					power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
 					enemy.accuracy *= 0.5
 					BattleLog.add_log("[卡牌结算] 断电: 「%s」电磁设备失效2回合" % enemy.unit_name, Color(0.8, 0.4, 1.0))
 				else:
@@ -408,7 +408,7 @@ func resolve_pending_card_effects() -> void:
 func _resolve_area_damage(center_col: int, center_row: int, area_size: int,
 		base_damage: float, hit_chance: float, source_name: String) -> int:
 	"""对指定范围内的敌方单位造成伤害，返回命中数"""
-	var half = area_size / 2
+	var half := int(area_size / 2.0)   # 修复: GDScript4 中 / 恒为浮点除, 必须显式取整, 否则 3x3 实际覆盖 2x2
 	var hits = 0
 
 	for dc in range(-half, area_size - half):
@@ -477,7 +477,7 @@ func activate_loan() -> bool:
 
 	loan_used_this_turn = true
 	loan_available = false
-	CampaignManager.campaign_loans += 10
+	CampaignManager.add_loan(10)
 	loan_activated.emit()
 
 	# 先立即抽一张牌，再登记下回合惩罚；否则惩罚会错误吞掉本次贷款收益。
@@ -524,13 +524,22 @@ func tick_cooldowns() -> void:
 				unit.is_hidden = false
 				unit.concealment_bonus = maxf(0.0, unit.concealment_bonus - 0.50)
 
-	# 断电倒计时
+	# 断电倒计时（到期恢复命中率）
 	var expired_pc = []
 	for uid in power_cut_units.keys():
-		power_cut_units[uid] -= 1
-		if power_cut_units[uid] <= 0:
+		var entry: Dictionary = power_cut_units[uid]
+		entry["turns"] -= 1
+		if entry["turns"] <= 0:
 			expired_pc.append(uid)
 	for uid in expired_pc:
+		var entry: Dictionary = power_cut_units[uid]
+		var unit: UnitBase = null
+		for u in Engine.get_main_loop().get_nodes_in_group("units"):
+			if u.unit_id == uid:
+				unit = u
+				break
+		if unit and unit.is_alive and entry.has("orig_accuracy"):
+			unit.accuracy = entry["orig_accuracy"]  # 修复: 断电 debuff 到期必须恢复命中率
 		power_cut_units.erase(uid)
 
 	# 重置贷款
@@ -559,7 +568,9 @@ func get_fortify_buff(col: int, row: int) -> float:
 
 func is_unit_power_cut(unit_id: int) -> bool:
 	"""查询单位是否被断电"""
-	return power_cut_units.has(unit_id) and power_cut_units[unit_id] > 0
+	if not power_cut_units.has(unit_id):
+		return false
+	return power_cut_units[unit_id]["turns"] > 0
 
 
 func discard_card(card_index: int) -> void:

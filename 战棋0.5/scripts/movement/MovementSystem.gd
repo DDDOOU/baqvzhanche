@@ -76,7 +76,12 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 				remaining_mp = 0.0
 				break
 
+		var prev_col: int = unit.grid_col
+		var prev_row: int = unit.grid_row
 		unit.set_grid_position(col, row)
+		# 移动后更新朝向（面向箭头与侧后装甲判定共用）
+		if col != prev_col or row != prev_row:
+			unit.facing_angle = atan2(float(row - prev_row), float(col - prev_col))
 		unit_step.emit(unit_id, col, row)
 		result["steps_completed"] += 1
 		result["final_col"] = col

@@ -190,32 +190,52 @@ func _plan_speed_rush(_turn: int) -> void:
 func _plan_steady_push(_turn: int) -> void:
 	"""稳推：保持阵型推进，优先攻击范围内的敌人"""
 	for unit in nato_units:
-		# 先检查是否可以攻击
-		var target = CombatSystem.get_best_target_in_range(unit)
-		if not target.is_empty():
-			TurnManager.submit_order(unit.unit_id, {
-				"type": "attack",
-				"target_col": target["col"],
-				"target_row": target["row"]
-			}, false)
-			continue
+		_plan_unit_steady(unit)
 
-		# 不能攻击则向最近的VP格移动
-		var best_vp = _find_nearest_vp(unit)
-		if best_vp != Vector2i(-1, -1):
-			var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
-				best_vp.x, best_vp.y, unit, unit.get_effective_movement() / 2.0)
-			if not path.is_empty():
-				TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
-			continue
 
-		# 无VP格 → 追击最近敌人
-		var nearest_enemy = _find_nearest_enemy(unit)
-		if nearest_enemy:
-			var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
-				nearest_enemy.grid_col, nearest_enemy.grid_row, unit)
-			if not path.is_empty():
-				TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
+func _plan_unit_steady(unit: UnitBase) -> void:
+	"""单单位稳推决策：攻击范围内目标 → 向最近VP半程推进 → 追击最近敌人"""
+	var target = CombatSystem.get_best_target_in_range(unit)
+	if not target.is_empty():
+		TurnManager.submit_order(unit.unit_id, {
+			"type": "attack",
+			"target_col": target["col"],
+			"target_row": target["row"]
+		}, false)
+		return
+
+	# 不能攻击则向最近的VP格移动（半程预算：全预算寻路后截断，避免预算内无解整回合挂机）
+	var best_vp = _find_nearest_vp(unit)
+	if best_vp != Vector2i(-1, -1):
+		var full_path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
+			best_vp.x, best_vp.y, unit)
+		var path = _truncate_path_to_budget(full_path, unit, unit.get_effective_movement() / 2.0)
+		if not path.is_empty():
+			TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
+		return
+
+	# 无VP格 → 追击最近敌人
+	var nearest_enemy = _find_nearest_enemy(unit)
+	if nearest_enemy:
+		var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
+			nearest_enemy.grid_col, nearest_enemy.grid_row, unit)
+		if not path.is_empty():
+			TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
+
+
+func _truncate_path_to_budget(path: Array, unit: UnitBase, budget: float) -> Array:
+	"""沿路径累计地形消耗，截断到预算内（修复: 半程寻路预算内无解时整回合不动）"""
+	var out: Array = []
+	var cost := 0.0
+	for step in path:
+		var cell = GridManager.get_cell(step.x, step.y)
+		if not cell:
+			break
+		cost += cell.get_move_cost()
+		if cost > budget:
+			break
+		out.append(step)
+	return out
 
 
 ## === 火力压制计划 ===
@@ -256,7 +276,8 @@ func _plan_fire_suppression(turn: int) -> void:
 						if not path.is_empty():
 							TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
 		else:
-			_plan_steady_push(turn)
+			# 修复: 只对当前单位做稳推决策, 不再整队重推覆盖前半段盲射指令
+			_plan_unit_steady(unit)
 
 
 ## === 集中突击计划 ===
