@@ -16,8 +16,14 @@ const FACTION_COLORS: Dictionary = {
 
 ## === 单位贴图（苏式粗犷风令牌，assets/units/） ===
 ## 键为 UnitBase.UnitType 枚举名，值为 res:// 贴图路径。
-## 图标布局（01_单位令牌.png 九宫格）：00/10/21=步兵, 01/20=坦克, 11=侦察,
-## 22=直升机, 02=装甲车/步战, 12=火炮/防空。
+## 九宫格视觉复核(2026-08-11, moonshot-v1-8k-vision-preview 逐张验证):
+##   00/10/21 = 步兵(单兵/双人通信组/护目镜步兵)
+##   01/20    = 主战坦克(01锈红 / 20灰绿, 20暂未启用)
+##   02       = 履带式步战车 IFV
+##   12       = 轮式步战车/APC (8x8轮式底盘)
+##   11       = 侦察兵(举望远镜, 非侦察车)
+##   22       = 攻击直升机 (暂未启用)
+## 注: 9图无火箭炮/防空专用图, BM21(轮式底盘)/SA13 借用 12 最接近。
 const UNIT_ICON_PATHS: Dictionary = {
 	UnitBase.UnitType.INFANTRY_SQUAD: "res://assets/units/unit_brutalist_00.png",
 	UnitBase.UnitType.MOTOR_RIFLE: "res://assets/units/unit_brutalist_10.png",
@@ -31,20 +37,21 @@ const UNIT_ICON_PATHS: Dictionary = {
 	UnitBase.UnitType.RESERVE: "res://assets/units/unit_brutalist_10.png",
 	UnitBase.UnitType.M1A1_TANK: "res://assets/units/unit_brutalist_01.png",
 	UnitBase.UnitType.M2_IFV: "res://assets/units/unit_brutalist_02.png",
-	UnitBase.UnitType.MECH_INFANTRY: "res://assets/units/unit_brutalist_10.png",
-	UnitBase.UnitType.AH64_HELICOPTER: "res://assets/units/unit_brutalist_22.png",
+	## —— 0.5.2 复核补全（关卡实际出场兵种，借用就近分类图）——
+	UnitBase.UnitType.MECH_INFANTRY: "res://assets/units/unit_brutalist_21.png",
+	UnitBase.UnitType.ATGM_TEAM: "res://assets/units/unit_brutalist_21.png",
 	UnitBase.UnitType.NATO_ENGINEER: "res://assets/units/unit_brutalist_10.png",
+	UnitBase.UnitType.NATO_RECON_SECTION: "res://assets/units/unit_brutalist_11.png",
+	UnitBase.UnitType.BRDM2_RECON: "res://assets/units/unit_brutalist_12.png",
+	UnitBase.UnitType.ZSU23_AA: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.GVOZDIKA_ARTILLERY: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.M109_ARTILLERY: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.M113_APC: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.M901_ITV: "res://assets/units/unit_brutalist_02.png",
+	UnitBase.UnitType.AH64_HELICOPTER: "res://assets/units/unit_brutalist_22.png",
 	UnitBase.UnitType.CIVILIAN_CONVOY: "res://assets/units/unit_brutalist_10.png",
 	UnitBase.UnitType.UNKNOWN_CONTACT: "res://assets/units/unit_brutalist_11.png",
-	UnitBase.UnitType.ATGM_TEAM: "res://assets/units/unit_brutalist_12.png",
-	UnitBase.UnitType.BRDM2_RECON: "res://assets/units/unit_brutalist_11.png",
-	UnitBase.UnitType.ZSU23_AA: "res://assets/units/unit_brutalist_12.png",
-	UnitBase.UnitType.GVOZDIKA_ARTILLERY: "res://assets/units/unit_brutalist_12.png",
-	UnitBase.UnitType.M901_ITV: "res://assets/units/unit_brutalist_12.png",
-	UnitBase.UnitType.M109_ARTILLERY: "res://assets/units/unit_brutalist_12.png",
-	UnitBase.UnitType.M113_APC: "res://assets/units/unit_brutalist_02.png",
-	UnitBase.UnitType.NATO_RECON_SECTION: "res://assets/units/unit_brutalist_11.png",
-}
+};
 
 ## 贴图缓存（路径 → Texture2D）
 var _icon_cache: Dictionary = {}
