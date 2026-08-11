@@ -31,6 +31,7 @@ var pending_move_target: Vector2i = Vector2i(-1, -1)
 var game_over_active: bool = false
 var game_over_panel: CanvasLayer = null
 var briefing_panel: CanvasLayer = null   # 任务简报浮窗（LEVEL_INTRO）
+var tutorial: Node = null                # 教学引导（第1关新手教程）
 var is_paused: bool = false
 var is_card_area_flash_active: bool = false
 var building_by_cell: Dictionary = {}
@@ -704,6 +705,15 @@ func _on_level_started(level_id: int) -> void:
 	var ld = LevelDatabase.get_level(level_id)
 	loan_button.visible = level_id == 1
 	_sync_loan_button()
+
+	# 教学引导：仅第 1 关且本次运行内未完成时启用
+	if level_id == 0 and not GameManager.tutorial_done and tutorial == null:
+		var tut = (load("res://scripts/ui/TutorialManager.gd") as GDScript).new()
+		tut.name = "TutorialManager"
+		add_child(tut)
+		tut.setup()
+		tutorial = tut
+
 	if not String(ld.briefing).is_empty():
 		BattleLog.add_log("任务简报：%s" % ld.briefing, Color(0.85, 0.88, 1.0))
 	if not String(ld.intel_a).is_empty():
@@ -980,6 +990,8 @@ func _on_confirm_move_pressed() -> void:
 	_clear_pending_move(false)
 	selected_unit = null
 	unit_renderer.deselect_unit()
+	if tutorial:
+		tutorial.notify("order_submitted")
 	await get_tree().create_timer(1.0).timeout
 	tile_grid.clear_highlights()
 
@@ -1102,6 +1114,8 @@ func _on_left_click(screen_pos: Vector2) -> void:
 		unit_renderer.select_unit(clicked_unit)
 		_set_action_hint("%s：点击蓝格规划移动；点击红色敌军下达攻击命令。" % clicked_unit.unit_name)
 		print("[MainScene] 已选中单位")
+		if tutorial:
+			tutorial.notify("unit_selected")
 		return
 
 	# 2) 点击射程与视线内的敌军 → 下达显式攻击指令。
@@ -1118,6 +1132,8 @@ func _on_left_click(screen_pos: Vector2) -> void:
 			selected_unit = null
 			unit_renderer.deselect_unit()
 			tile_grid.clear_highlights()
+			if tutorial:
+				tutorial.notify("order_submitted")
 			return
 		_set_action_hint("目标不在射程或视线被阻挡；请先移动接近。")
 		return
@@ -1190,6 +1206,8 @@ func _on_state_changed(_old: int, new: int) -> void:
 			game_over_active = false
 		GameManager.GameState.EXECUTION_PHASE:
 			print("[MainScene] >>> 演算阶段 <<<")
+			if tutorial:
+				tutorial.notify("execution")
 		GameManager.GameState.VICTORY:
 			_show_game_over_panel(UnitBase.Faction.WARSAW_PACT, _get_game_over_reason())
 		GameManager.GameState.DEFEAT:
@@ -1200,6 +1218,12 @@ func _on_planning_started(turn: int) -> void:
 	BattleLog.add_phase_log("第%d回合 · 计划阶段" % turn)
 	_set_action_hint("选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。")
 	_sync_loan_button()
+	# 教学引导推进（第1回合开始 / 第2回合完成）
+	if tutorial:
+		if turn == 1:
+			tutorial.notify("planning_r1")
+		elif turn == 2:
+			tutorial.notify("planning_r2")
 	# 重置所有单位移动点数
 	for u in get_tree().get_nodes_in_group("units"):
 		if u.is_alive:

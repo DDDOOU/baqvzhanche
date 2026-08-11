@@ -42,6 +42,7 @@ var runtime_map_size: Vector2i = Vector2i(40, 45)
 var execution_skip_requested: bool = false
 var pending_save_data: Dictionary = {}
 var _intro_confirm_requested: bool = false   # 简报确认标志（LEVEL_INTRO 等待玩家点击）
+var tutorial_done: bool = false              # 教学引导是否已完成/跳过（本次运行内有效）
 
 ## === Bug追踪与版本控制 ===
 var bug_tracker: Dictionary = {}     # bug_id -> {description, status, fix_version}
