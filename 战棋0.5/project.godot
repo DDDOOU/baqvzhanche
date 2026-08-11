@@ -36,6 +36,7 @@ NATOAI="*res://scripts/ai/NATOAI.gd"
 GameManager="*res://scripts/core/GameManager.gd"
 BattleLog="*res://scripts/core/BattleLog.gd"
 VictoryManager="*res://scripts/core/VictoryManager.gd"
+SoundManager="*res://scripts/audio/SoundManager.gd"
 
 [display]
 

@@ -275,6 +275,7 @@ func _connect_signals() -> void:
 	MoraleSystem.unit_broken.connect(_on_unit_broken)
 	EMISystem.intensity_changed.connect(_on_emi_changed)
 	CardSystem.card_drawn.connect(_on_card_drawn)
+	CardSystem.card_used.connect(_on_card_used)
 	# 移动每步/完成都刷新单位渲染，沙盘演示时实时看到移动/攻击掉血
 	MovementSystem.unit_step.connect(_on_unit_step)
 	MovementSystem.unit_move_completed.connect(_on_unit_move_completed)
@@ -668,6 +669,7 @@ func _on_loan_pressed() -> void:
 	if is_paused or GameManager.current_state != GameManager.GameState.PLANNING_PHASE:
 		return
 	if CardSystem.activate_loan():
+		SoundManager.play("loan_coin", -3.0)
 		BattleLog.add_log("指挥贷款启用：立即抽1张牌，下回合手牌-1。", Color(1.0, 0.82, 0.35))
 		_set_action_hint("贷款已使用：本回合多1张牌，下回合将少抽1张。")
 	_sync_loan_button()
@@ -990,6 +992,7 @@ func _on_confirm_move_pressed() -> void:
 	_clear_pending_move(false)
 	selected_unit = null
 	unit_renderer.deselect_unit()
+	SoundManager.play("move_order", -6.0)
 	if tutorial:
 		tutorial.notify("order_submitted")
 	await get_tree().create_timer(1.0).timeout
@@ -1116,6 +1119,7 @@ func _on_left_click(screen_pos: Vector2) -> void:
 		print("[MainScene] 已选中单位")
 		if tutorial:
 			tutorial.notify("unit_selected")
+		SoundManager.play("unit_select", -6.0)
 		return
 
 	# 2) 点击射程与视线内的敌军 → 下达显式攻击指令。
@@ -1134,6 +1138,7 @@ func _on_left_click(screen_pos: Vector2) -> void:
 			tile_grid.clear_highlights()
 			if tutorial:
 				tutorial.notify("order_submitted")
+			SoundManager.play("tank_fire", -4.0)
 			return
 		_set_action_hint("目标不在射程或视线被阻挡；请先移动接近。")
 		return
@@ -1209,12 +1214,15 @@ func _on_state_changed(_old: int, new: int) -> void:
 			if tutorial:
 				tutorial.notify("execution")
 		GameManager.GameState.VICTORY:
+			SoundManager.play("victory")
 			_show_game_over_panel(UnitBase.Faction.WARSAW_PACT, _get_game_over_reason())
 		GameManager.GameState.DEFEAT:
+			SoundManager.play("defeat")
 			_show_game_over_panel(UnitBase.Faction.NATO, _get_game_over_reason())
 
 func _on_planning_started(turn: int) -> void:
 	print("[MainScene] 第%d回合计划开始" % turn)
+	SoundManager.play("round_plan", -4.0)
 	BattleLog.add_phase_log("第%d回合 · 计划阶段" % turn)
 	_set_action_hint("选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。")
 	_sync_loan_button()
@@ -1231,6 +1239,7 @@ func _on_planning_started(turn: int) -> void:
 
 func _on_execution_started(turn: int) -> void:
 	print("[MainScene] 第%d回合演算开始" % turn)
+	SoundManager.play("round_exec", -4.0)
 	BattleLog.add_phase_log("第%d回合 · 演算阶段" % turn)
 	_sync_loan_button()
 
@@ -1238,16 +1247,23 @@ func _on_turn_resolved(turn: int) -> void:
 	print("[MainScene] 第%d回合结算" % turn)
 
 func _on_attack_executed(_aid: int, _tc: int, _tr: int, result: Dictionary) -> void:
+	SoundManager.play("gunshot", -4.0)
 	if result.get("hit"):
 		print("[MainScene] 命中! 伤害: %.1f" % result.get("damage", 0.0))
+		SoundManager.play("hit", -2.0)
 	unit_renderer.queue_redraw()
 
 func _on_unit_destroyed(uid: int, _kid: int) -> void:
 	print("[MainScene] 单位%d被摧毁" % uid)
+	SoundManager.play("explosion", -2.0)
 	unit_renderer.queue_redraw()
 
 func _on_unit_broken(uid: int) -> void:
 	print("[MainScene] 单位%d士气崩溃!" % uid)
+	SoundManager.play("morale_break", -3.0)
+
+func _on_card_used(_card_id: String, _tc: int, _tr: int) -> void:
+	SoundManager.play("card_use", -4.0)
 
 func _on_emi_changed(new_val: float, _old: float) -> void:
 	print("[MainScene] EMI: %.0f%%" % (new_val * 100))
