@@ -243,8 +243,8 @@ func reset_for_level() -> void:
 
 
 func create_unit(unit_type: UnitBase.UnitType, faction: UnitBase.Faction,
-		col: int, row: int, parent_node: Node) -> UnitBase:
-	"""工厂方法：创建一个单位实例"""
+		col: int, row: int, parent_node: Node, initial_morale: int = 70) -> UnitBase:
+	"""工厂方法：创建一个单位实例（initial_morale: 关卡数据可指定, 默认70避免开局全员ELATED）"""
 	var unit = UnitBase.new()
 	unit.unit_id = generate_unit_id()
 	unit.unit_type = unit_type
@@ -284,7 +284,7 @@ func create_unit(unit_type: UnitBase.UnitType, faction: UnitBase.Faction,
 		parent_node.add_child(unit)
 
 	# 初始化士气
-	MoraleSystem.init_unit_morale(unit.unit_id, 75)
+	MoraleSystem.init_unit_morale(unit.unit_id, initial_morale)
 
 	print("[UnitDatabase] 创建单位: %s (ID=%d) at (%d,%d)" % [unit.unit_name, unit.unit_id, col, row])
 	return unit
@@ -297,10 +297,8 @@ func restore_unit(data: Dictionary, parent_node: Node) -> UnitBase:
 		int(data.get("faction", UnitBase.Faction.WARSAW_PACT)),
 		int(data.get("grid_col", 0)),
 		int(data.get("grid_row", 0)),
-		parent_node)
+		parent_node,
+		int(data.get("morale", 70)))
 	unit.restore(data)
 	next_unit_id = maxi(next_unit_id, unit.unit_id)
-	# 修复: create_unit 用新生成的 unit_id 初始化了士气, restore 覆盖 unit_id 后
-	# MoraleSystem 键失配 → 读档全体士气归零(BROKEN)。按存档值重新初始化。
-	MoraleSystem.init_unit_morale(unit.unit_id, int(data.get("morale", 75)))
 	return unit

@@ -137,7 +137,7 @@ func _init_from_type() -> void:
 		size_rows = sz.y
 
 	# 初始化士气
-	MoraleSystem.init_unit_morale(unit_id, 75)
+	MoraleSystem.init_unit_morale(unit_id, 70)  # 默认70: 避免开局全员ELATED(阈值75)
 
 
 ## === 移动 ===
@@ -177,14 +177,11 @@ func can_move_to(col: int, row: int) -> bool:
 
 
 func get_effective_movement() -> int:
-	"""获取修正后的移动点数"""
+	"""获取修正后的移动点数（MP 单位, 供寻路预算与执行重置统一使用）
+	修复: 原实现按当前格地形折算成"格数"再被寻路当成本预算双重计费——
+	公路 UI 高估 4 倍、山地 UI 0 格不可移动"""
 	var mp = movement_points
-	# 士气修正
 	mp += MoraleSystem.get_move_modifier(unit_id)
-	# 地形修正（当前格子）
-	var cell = GridManager.get_cell(grid_col, grid_row)
-	if cell:
-		mp = int(float(mp) / cell.get_move_cost())
 	return maxi(1, mp)
 
 

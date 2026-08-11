@@ -276,16 +276,13 @@ func _start_level_intro() -> void:
 		GridManager.initialize_map(level_data.map_data, level_data.map_width, level_data.map_height)
 	else:
 		GridManager.initialize_map(runtime_map_data, runtime_map_size.x, runtime_map_size.y)
-	# 确保VP格从关卡数据复制到GridManager（地形marker可能未覆盖所有关卡）
-	for vp in level_data.vp_cells:
-		if not GridManager.vp_cells.has(vp):
-			GridManager.vp_cells.append(vp)
-	for wp in level_data.wp_spawn:
-		if not GridManager.spawn_wp.has(wp):
-			GridManager.spawn_wp.append(wp)
-	for ns in level_data.nato_spawn:
-		if not GridManager.spawn_nato.has(ns):
-			GridManager.spawn_nato.append(ns)
+	# VP格/出生点：以关卡数据为唯一权威（清掉场景标记合并的旧坐标, 防双轨冲突→VP 5格/出生点含失效格）
+	GridManager.vp_cells.clear()
+	GridManager.vp_cells.append_array(level_data.vp_cells)
+	GridManager.spawn_wp.clear()
+	GridManager.spawn_wp.append_array(level_data.wp_spawn)
+	GridManager.spawn_nato.clear()
+	GridManager.spawn_nato.append_array(level_data.nato_spawn)
 	CampaignManager.initialize_level(level_data)
 	EMISystem.set_level(current_level_id)
 	# 初始化胜利判定（VP格、指挥中心、回合限制）
@@ -431,13 +428,15 @@ func apply_pending_save(parent_node: Node) -> bool:
 		if unit is UnitBase:
 			unit.free()
 	UnitDatabase.reset_for_level()
+	# 修复: 士气先恢复再重建单位——restore_unit 内 init_unit_morale 写入的键
+	# 若在 deserialize 之后执行会被整表替换清掉（旧档读档全体 BROKEN）
+	MoraleSystem.deserialize(data.get("morale", {}))
 	for unit_data in data.get("units", []):
 		if unit_data is Dictionary:
 			UnitDatabase.restore_unit(unit_data, parent_node)
 
 	CampaignManager.deserialize(data.get("campaign", {}))
 	EMISystem.deserialize(data.get("emi", {}))
-	MoraleSystem.deserialize(data.get("morale", {}))
 	CardSystem.deserialize(data.get("cards", {}))
 	MovementSystem.deserialize(data.get("mines", {}))
 	CombatSystem.deserialize(data.get("smoke", {}))

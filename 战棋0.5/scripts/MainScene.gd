@@ -731,9 +731,9 @@ func _on_level_started(level_id: int) -> void:
 	tile_grid.show_coordinates = true
 	tile_grid.queue_redraw()
 
-	# 生成单位（移动力取自 UnitDatabase 配置，不覆盖）
+	# 生成单位（移动力取自 UnitDatabase 配置，不覆盖；士气透传关卡数据）
 	for cfg in ld.wp_units:
-		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.WARSAW_PACT, cfg["col"], cfg["row"], self)
+		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.WARSAW_PACT, cfg["col"], cfg["row"], self, int(cfg.get("morale", 70)))
 	for cfg in ld.nato_units:
 		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.NATO, cfg["col"], cfg["row"], self)
 
@@ -1264,7 +1264,7 @@ func _on_planning_started(turn: int) -> void:
 	# 重置所有单位移动点数
 	for u in get_tree().get_nodes_in_group("units"):
 		if u.is_alive:
-			u.remaining_movement = u.movement_points
+			u.remaining_movement = u.get_effective_movement()  # 修复: 含士气修正, 与寻路预算一致
 
 func _on_execution_started(turn: int) -> void:
 	print("[MainScene] 第%d回合演算开始" % turn)
@@ -1543,16 +1543,19 @@ func _on_restart_pressed() -> void:
 
 func _on_next_level_pressed() -> void:
 	var next_level_id := GameManager.current_level_id + 1
-	# 修复: queue_free + 等一帧再启动新场景（不 remove_child——脱离树后 get_tree() 为 null 会中断协程）。
-	# 旧场景在帧末释放, 其 level_started 连接随之断开, 不会响应新场景启动信号。
+	var tree := get_tree()
+	# 修复: queue_free 后 await 恢复会因 self 已释放而中断协程——
+	# 改用 SceneTreeTimer 回调(不依赖 self 存活), 并提前断开自己的信号防双响应。
+	if GameManager.level_started.is_connected(_on_level_started):
+		GameManager.level_started.disconnect(_on_level_started)
 	queue_free()
-	await get_tree().create_timer(0.1).timeout
-	var packed := load("res://scenes/MainScene.tscn") as PackedScene
-	var next_scene = packed.instantiate()
-	next_scene.startup_level_id = next_level_id
-	var root := get_tree().root
-	root.add_child(next_scene)
-	get_tree().current_scene = next_scene
+	tree.create_timer(0.1).timeout.connect(func() -> void:
+		var packed := load("res://scenes/MainScene.tscn") as PackedScene
+		var next_scene = packed.instantiate()
+		next_scene.startup_level_id = next_level_id
+		tree.root.add_child(next_scene)
+		tree.current_scene = next_scene
+	)
 
 
 func _on_quit_pressed() -> void:

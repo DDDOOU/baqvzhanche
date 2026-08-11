@@ -299,9 +299,12 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 			var cell = GridManager.get_cell(target_col, target_row)
 			if cell and cell.occupant_unit and cell.occupant_unit.faction == UnitBase.Faction.NATO:
 				var enemy = cell.occupant_unit
-				power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
-				# 降低敌方命中率（到期在 tick_cooldowns 恢复）
-				enemy.accuracy *= 0.5
+				if not power_cut_units.has(enemy.unit_id):
+					power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
+					# 降低敌方命中率（到期在 tick_cooldowns 恢复）
+					enemy.accuracy *= 0.5
+				else:
+					power_cut_units[enemy.unit_id]["turns"] = 2
 				BattleLog.add_log("[卡牌] 断电: 「%s」电磁设备失效2回合" % enemy.unit_name, Color(0.8, 0.4, 1.0))
 				print("[CardSystem] 断电生效: 敌方单位%d" % enemy.unit_id)
 			else:
@@ -385,8 +388,12 @@ func resolve_pending_card_effects() -> void:
 				var cell = GridManager.get_cell(tc, tr)
 				if cell and cell.occupant_unit and cell.occupant_unit.faction == UnitBase.Faction.NATO:
 					var enemy = cell.occupant_unit
-					power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
-					enemy.accuracy *= 0.5
+					if not power_cut_units.has(enemy.unit_id):
+						# 修复: 首次记录原始命中率; 重复施放只重置时长, 否则恢复的是减半值→永久-50%
+						power_cut_units[enemy.unit_id] = {"turns": 2, "orig_accuracy": enemy.accuracy}
+						enemy.accuracy *= 0.5
+					else:
+						power_cut_units[enemy.unit_id]["turns"] = 2
 					BattleLog.add_log("[卡牌结算] 断电: 「%s」电磁设备失效2回合" % enemy.unit_name, Color(0.8, 0.4, 1.0))
 				else:
 					BattleLog.add_log("[卡牌结算] 断电: (%d,%d) 无敌方单位，效果未生效" % [tc, tr], Color(0.6, 0.6, 0.6))
@@ -432,11 +439,10 @@ func _resolve_area_damage(center_col: int, center_row: int, area_size: int,
 				var dmg = base_damage * (1.0 - cell.get_defense_bonus())
 				# 阵地加固减伤
 				dmg *= (1.0 - get_fortify_buff(c, r))
-				# 修复: 卡牌范围攻击误伤中立平民必须触发惩罚（与直射路径一致）
+				# 修复: 卡牌范围攻击误伤中立平民→惩罚攻击方（与直射路径一致, 扣平民自己士气无效）
 				if target.faction == UnitBase.Faction.NEUTRAL \
 						and target.unit_type == UnitBase.UnitType.CIVILIAN_CONVOY:
-					CombatSystem.civilian_hit.emit(target.unit_id)
-					MoraleSystem.modify_unit_morale(target.unit_id, -20, "平民伤亡")
+					MoraleSystem.apply_civilian_casualty_penalty(-1)
 				target.take_damage(dmg, -1)
 
 				var was_destroyed = false
@@ -654,7 +660,9 @@ func serialize() -> Dictionary:
 		"deck": _cards_to_state(deck),
 		"discard": _cards_to_state(discard_pile),
 		"loan_available": loan_available,
-		"next_turn_penalty": next_turn_card_penalty
+		"next_turn_penalty": next_turn_card_penalty,
+		"radio_silence_active": radio_silence_active,
+		"power_cut_units": power_cut_units
 	}
 
 
@@ -667,6 +675,9 @@ func deserialize(data: Dictionary) -> void:
 	discard_pile.clear()
 	loan_available = data.get("loan_available", true)
 	next_turn_card_penalty = data.get("next_turn_penalty", 0)
+	# 修复: 无线电静默/断电状态入档, 否则读档后 concealment_bonus 永久残留
+	radio_silence_active = bool(data.get("radio_silence_active", false))
+	power_cut_units = data.get("power_cut_units", {}).duplicate(true)
 	# 修复: 必须重建卡牌对象, 否则读档后手牌/牌库为空, 卡牌系统整体失效
 	hand = _cards_from_state(data.get("hand", []))
 	deck = _cards_from_state(data.get("deck", []))
@@ -690,9 +701,13 @@ func _cards_from_state(states: Array) -> Array[CardInstance]:
 	var out: Array[CardInstance] = []
 	for s in states:
 		var c := CardInstance.new()
-		c.card_id = s.get("id", "")
-		c.cooldown = int(s.get("cd", 0))
-		c.is_scrambled = s.get("scrambled", false)
+		if s is Dictionary:
+			c.card_id = s.get("id", "")
+			c.cooldown = int(s.get("cd", 0))
+			c.is_scrambled = s.get("scrambled", false)
+		else:
+			# 兼容旧格式（元素为纯 id 字符串）
+			c.card_id = String(s)
 		_fill_card_info(c)   # 修复: 回填 name/cost/max_cooldown/data, 否则读档后卡牌空白
 		out.append(c)
 	return out
