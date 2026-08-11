@@ -30,6 +30,7 @@ var pending_move_path: Array = []
 var pending_move_target: Vector2i = Vector2i(-1, -1)
 var game_over_active: bool = false
 var game_over_panel: CanvasLayer = null
+var briefing_panel: CanvasLayer = null   # 任务简报浮窗（LEVEL_INTRO）
 var is_paused: bool = false
 var is_card_area_flash_active: bool = false
 var building_by_cell: Dictionary = {}
@@ -1182,6 +1183,8 @@ func _set_action_hint(message: String) -> void:
 
 func _on_state_changed(_old: int, new: int) -> void:
 	match new:
+		GameManager.GameState.LEVEL_INTRO:
+			_show_briefing_panel()
 		GameManager.GameState.PLANNING_PHASE:
 			print("[MainScene] <<< 计划阶段 >>> 请下达移动/攻击指令")
 			game_over_active = false
@@ -1227,6 +1230,107 @@ func _on_emi_changed(new_val: float, _old: float) -> void:
 
 func _on_card_drawn(card) -> void:
 	print("[MainScene] 抽到: %s" % card.card_name)
+
+
+func _show_briefing_panel() -> void:
+	"""任务简报浮窗：关卡开场显示任务目标与情报，点击'开始行动'进入计划阶段。"""
+	if briefing_panel:
+		return
+	var level_data = LevelDatabase.get_level(GameManager.current_level_id)
+	if level_data == null:
+		GameManager.confirm_intro()
+		return
+
+	var layer = CanvasLayer.new()
+	layer.layer = 90
+	layer.name = "BriefingLayer"
+	add_child(layer)
+	briefing_panel = layer
+
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(center)
+
+	var panel = Panel.new()
+	panel.custom_minimum_size = Vector2(660, 480)
+	panel.self_modulate = Color(0.08, 0.08, 0.1, 0.92)
+	center.add_child(panel)
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.09, 0.09, 0.11, 0.96)
+	style.border_width_left = 3
+	style.border_width_right = 3
+	style.border_width_top = 3
+	style.border_width_bottom = 3
+	style.border_color = Color(0.8, 0.75, 0.5)
+	style.corner_radius_top_left = 12
+	style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 12)
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vbox.set_deferred("offset_left", 36)
+	vbox.set_deferred("offset_right", -36)
+	vbox.set_deferred("offset_top", 28)
+	vbox.set_deferred("offset_bottom", -24)
+	panel.add_child(vbox)
+
+	# 标题
+	var title = Label.new()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.6))
+	title.text = "任务简报 — 第%d关《%s》" % [level_data.level_id + 1, level_data.level_name]
+	vbox.add_child(title)
+
+	# 简报正文
+	var briefing = Label.new()
+	briefing.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	briefing.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	briefing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	briefing.add_theme_font_size_override("font_size", 17)
+	briefing.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
+	briefing.text = level_data.briefing
+	vbox.add_child(briefing)
+
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# 目标 / 条件 / 情报
+	var info = Label.new()
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_theme_font_size_override("font_size", 15)
+	info.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+	var info_text := "主任务：%s\n胜利：%s\n失败：%s\n回合限制：%d 回合" % [
+		level_data.primary_objective, level_data.victory_condition,
+		level_data.failure_condition, level_data.max_turns]
+	if not String(level_data.intel_a).is_empty():
+		info_text += "\n情报：%s" % level_data.intel_a
+	info.text = info_text
+	vbox.add_child(info)
+
+	# 开始按钮
+	var start_btn = Button.new()
+	start_btn.text = "开始行动"
+	start_btn.custom_minimum_size = Vector2(180, 52)
+	start_btn.pressed.connect(_on_briefing_start_pressed)
+	vbox.add_child(start_btn)
+
+
+func _on_briefing_start_pressed() -> void:
+	"""点击开始行动：关闭简报浮窗并立即进入计划阶段。"""
+	_close_briefing_panel()
+	GameManager.confirm_intro()
+
+
+func _close_briefing_panel() -> void:
+	if briefing_panel:
+		briefing_panel.queue_free()
+		briefing_panel = null
 
 
 func _get_game_over_reason() -> String:
@@ -1305,6 +1409,17 @@ func _show_game_over_panel(winner_faction: int, reason: String) -> void:
 	reason_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	reason_label.text = reason
 	vbox.add_child(reason_label)
+
+	# 战后旁白
+	var level_data = LevelDatabase.get_level(GameManager.current_level_id)
+	if level_data != null and not String(level_data.outro_narration).is_empty():
+		var outro = Label.new()
+		outro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		outro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		outro.add_theme_font_size_override("font_size", 16)
+		outro.add_theme_color_override("font_color", Color(0.85, 0.8, 0.65))
+		outro.text = "—— %s ——" % level_data.outro_narration
+		vbox.add_child(outro)
 
 	# 统计 — 含VP控制信息
 	var vp = VictoryManager.get_vp_control()

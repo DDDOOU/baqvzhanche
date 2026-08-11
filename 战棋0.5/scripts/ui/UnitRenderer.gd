@@ -18,11 +18,11 @@ const FACTION_COLORS: Dictionary = {
 ## 键为 UnitBase.UnitType 枚举名，值为 res:// 贴图路径。
 ## 九宫格视觉复核(2026-08-11, moonshot-v1-8k-vision-preview 逐张验证):
 ##   00/10/21 = 步兵(单兵/双人通信组/护目镜步兵)
-##   01/20    = 主战坦克(01锈红 / 20灰绿, 20暂未启用)
+##   01/20    = 主战坦克(01锈红=华约T-72B / 20灰绿=北约M1A1, 阵营区分)
 ##   02       = 履带式步战车 IFV
 ##   12       = 轮式步战车/APC (8x8轮式底盘)
 ##   11       = 侦察兵(举望远镜, 非侦察车)
-##   22       = 攻击直升机 (暂未启用)
+##   22       = 攻击直升机 (AH-64)
 ## 注: 9图无火箭炮/防空专用图, BM21(轮式底盘)/SA13 借用 12 最接近。
 const UNIT_ICON_PATHS: Dictionary = {
 	UnitBase.UnitType.INFANTRY_SQUAD: "res://assets/units/unit_brutalist_00.png",
@@ -35,7 +35,7 @@ const UNIT_ICON_PATHS: Dictionary = {
 	UnitBase.UnitType.SAPPERS: "res://assets/units/unit_brutalist_10.png",
 	UnitBase.UnitType.COMMAND_ELEMENT: "res://assets/units/unit_brutalist_11.png",
 	UnitBase.UnitType.RESERVE: "res://assets/units/unit_brutalist_10.png",
-	UnitBase.UnitType.M1A1_TANK: "res://assets/units/unit_brutalist_01.png",
+	UnitBase.UnitType.M1A1_TANK: "res://assets/units/unit_brutalist_20.png",
 	UnitBase.UnitType.M2_IFV: "res://assets/units/unit_brutalist_02.png",
 	## —— 0.5.2 复核补全（关卡实际出场兵种，借用就近分类图）——
 	UnitBase.UnitType.MECH_INFANTRY: "res://assets/units/unit_brutalist_21.png",

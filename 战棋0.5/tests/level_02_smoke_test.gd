@@ -15,6 +15,9 @@ func _run() -> void:
 	main.startup_level_id = 1
 	get_tree().root.add_child(main)
 	await get_tree().create_timer(3.5).timeout
+	# 0.5.3 起 LEVEL_INTRO 等待玩家点击"开始行动"——测试模拟确认进入计划阶段
+	GameManager.confirm_intro()
+	await get_tree().create_timer(0.3).timeout
 
 	_check(GridManager.MAP_WIDTH == 20 and GridManager.MAP_HEIGHT == 12, "第2关地图应为20×12")
 	_check(TurnManager.max_turns == 10, "第2关应在第10回合结算")

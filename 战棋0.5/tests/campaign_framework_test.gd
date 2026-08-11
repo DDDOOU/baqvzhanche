@@ -29,6 +29,9 @@ func _run() -> void:
 	main.startup_level_id = 9
 	get_tree().root.add_child(main)
 	await get_tree().create_timer(3.5).timeout
+	# 0.5.3 起 LEVEL_INTRO 等待玩家点击"开始行动"——测试模拟确认进入计划阶段
+	GameManager.confirm_intro()
+	await get_tree().create_timer(0.3).timeout
 	_check(GameManager.current_level_id == 9, "应完整启动第10关")
 	_check(GridManager.MAP_WIDTH == 20 and GridManager.MAP_HEIGHT == 12, "第10关运行时地图尺寸应正确")
 	_check(get_tree().get_nodes_in_group("units").size() == 25, "第10关应生成13支华约与12支北约单位")

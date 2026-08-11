@@ -37,6 +37,20 @@ func _build_all_levels() -> void:
 
 func _complete_late_level_frameworks() -> void:
 	"""为第3-10关补齐共用的可运行框架；独立场景可在后续直接替换美术。"""
+	# 战后旁白（第3-10关，按 level_id 索引；1-2关已在各自构建函数内手写）
+	var outros := {
+		2: "第一轮冲击退去了。但洪水不会只涨一次，河对岸的探照灯整夜未灭。",
+		3: "林地里的枪声停了，误击的伤兵被抬下火线。指挥部的电话沉默了很久。",
+		4: "预备队按时抵达，像钟表一样准确。可你知道，钟表匠已经不在乎时间了。",
+		5: "桥断了，反击的路也断了。敌军在河对岸重新集结，等着你用最短的桥过河。",
+		6: "整个频段静默得像坟场。你赢了这一仗，却听不见任何友军的回答。",
+		7: "走廊尽头的光是白的，雪也是白的。你分不清哪边是黎明，哪边是信号弹。",
+		8: "轨道在炮火下泛红，像一条动脉。列车还在一趟趟开往前线，装载着你看不见的东西。",
+		9: "坐标归零。地图上最后一个标记被擦掉了——这一次，没有人能再标注你的位置。",
+	}
+	for level in levels:
+		if String(level.outro_narration).is_empty() and outros.has(level.level_id):
+			level.outro_narration = outros[level.level_id]
 	for level in levels:
 		if level.level_id < 2:
 			continue
@@ -85,7 +99,7 @@ func _build_level_01() -> LevelData:
 	level.act_number = 1
 	level.designer_intent = "教学关：让玩家熟悉60秒计划+30秒沙盘循环、坐标输入、基础侦察、士气概念。"
 	level.briefing = "1987年9月14日04:30，雾。西部军区第29摩步师前沿哨所报告：'边境出现机械化纵队，未识别。'"
-	level.outro_narration = "你守住了第一节车厢。但你已经听到铁轨在响。"
+	level.outro_narration = "雾散之前，边境线上的警报声终于停了。这一夜没有英雄，只有哨所里活下来的人。"
 
 	level.max_turns = 8
 	level.map_width = 40
@@ -174,6 +188,7 @@ func _build_level_02() -> LevelData:
 	level.level_name = "铁路线防御"
 	level.act_number = 1
 	level.briefing = "凌晨05:20，北约装甲纵队沿铁路枢纽推进。守住仓库、铁路桥与南侧桥头堡；工兵可布雷，也能安全排除雷区。"
+	level.outro_narration = "你守住了第一节车厢。但你已经听到铁轨在响——不是火车，是下一场战役的脚步声。"
 	level.primary_objective = "第10回合结束时控制至少2个铁路VP。"
 	level.victory_condition = "守住至少2个VP，或摧毁北约指挥单位。"
 	level.failure_condition = "己方指挥单位被毁、全军覆没，或终局控制少于2个VP。"

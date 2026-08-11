@@ -25,6 +25,7 @@ signal state_changed(old_state: GameState, new_state: GameState)
 signal level_started(level_id: int)
 signal level_completed(level_id: int, result: Dictionary)
 signal campaign_ended(final_result: Dictionary)
+signal intro_confirmed   # 玩家点击任务简报"开始行动"
 
 ## === 当前状态 ===
 var current_state: GameState = GameState.BOOT
@@ -40,6 +41,7 @@ var runtime_map_data: Dictionary = {}
 var runtime_map_size: Vector2i = Vector2i(40, 45)
 var execution_skip_requested: bool = false
 var pending_save_data: Dictionary = {}
+var _intro_confirm_requested: bool = false   # 简报确认标志（LEVEL_INTRO 等待玩家点击）
 
 ## === Bug追踪与版本控制 ===
 var bug_tracker: Dictionary = {}     # bug_id -> {description, status, fix_version}
@@ -260,9 +262,26 @@ func _start_level_intro() -> void:
 	EMISystem.set_level(current_level_id)
 	# 初始化胜利判定（VP格、指挥中心、回合限制）
 	VictoryManager.setup_level(level_data)
-	# 短暂展示后进入计划阶段
-	await get_tree().create_timer(3.0).timeout
+	# 等待玩家阅读任务简报并点击"开始行动"（60 秒兜底，防 UI 异常卡死关卡）
+	_intro_confirm_requested = false
+	intro_confirmed.connect(_on_intro_confirmed, CONNECT_ONE_SHOT)
+	var confirm_timeout := get_tree().create_timer(60.0)
+	while not _intro_confirm_requested:
+		await get_tree().process_frame
+		if confirm_timeout.time_left <= 0.0:
+			break
 	change_state(GameState.PLANNING_PHASE)
+
+
+func confirm_intro() -> void:
+	"""玩家点击简报'开始行动'，立即进入计划阶段。"""
+	if current_state != GameState.LEVEL_INTRO:
+		return
+	intro_confirmed.emit()
+
+
+func _on_intro_confirmed() -> void:
+	_intro_confirm_requested = true
 
 
 func _on_level_end(result: Dictionary) -> void:
