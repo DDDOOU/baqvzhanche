@@ -109,40 +109,40 @@ func _build_level_01() -> LevelData:
 	level.weather_vision_penalty = 3
 	level.emi_base_level = 0.0
 
-	# VP格
-	level.vp_cells = [Vector2i(20, 20), Vector2i(20, 21), Vector2i(20, 22)]
-	level.wp_spawn = [Vector2i(3, 6), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 7), Vector2i(5, 7)]
-	level.nato_spawn = [Vector2i(35, 20), Vector2i(35, 21), Vector2i(36, 20), Vector2i(36, 22)]
-	level.wp_command_center = Vector2i(4, 6)  # (5,G)
-	level.nato_command_center = Vector2i(35, 20)
+	# VP格（已按场景地形修正: 原(20,20)(20,21)在水/岩上不可通行）
+	level.vp_cells = [Vector2i(19, 20), Vector2i(21, 21), Vector2i(20, 22)]
+	level.wp_spawn = [Vector2i(4, 5), Vector2i(5, 6), Vector2i(5, 7), Vector2i(2, 6), Vector2i(4, 8)]
+	level.nato_spawn = [Vector2i(35, 21), Vector2i(34, 21), Vector2i(36, 19), Vector2i(35, 22)]
+	level.wp_command_center = Vector2i(4, 5)
+	level.nato_command_center = Vector2i(35, 21)
 
 	# 华约起始手牌
 	level.wp_starting_cards = CardDatabase.get_level_cards(0)
 
-	# 华约初始单位
+	# 华约初始单位（坐标已按场景地形修正: 原 4/5 列多处落在岩石/工事/水域）
 	level.wp_units = [
-		{"type": UnitBase.UnitType.COMMAND_ELEMENT, "col": 4, "row": 6, "morale": 80},  # 列夫森科
-		{"type": UnitBase.UnitType.INFANTRY_SQUAD, "col": 5, "row": 5},   # 步兵A
+		{"type": UnitBase.UnitType.COMMAND_ELEMENT, "col": 4, "row": 5, "morale": 80},  # 列夫森科
+		{"type": UnitBase.UnitType.INFANTRY_SQUAD, "col": 4, "row": 4},   # 步兵A
 		{"type": UnitBase.UnitType.INFANTRY_SQUAD, "col": 5, "row": 7},   # 步兵B
 		{"type": UnitBase.UnitType.T72B_TANK, "col": 4, "row": 7},
 		{"type": UnitBase.UnitType.BMP2_IFV, "col": 5, "row": 6},
-		{"type": UnitBase.UnitType.RECON_PLATOON, "col": 3, "row": 6},
-		{"type": UnitBase.UnitType.ATGM_TEAM, "col": 7, "row": 18},
-		{"type": UnitBase.UnitType.BRDM2_RECON, "col": 8, "row": 19},
-		{"type": UnitBase.UnitType.ZSU23_AA, "col": 6, "row": 21},
+		{"type": UnitBase.UnitType.RECON_PLATOON, "col": 2, "row": 7},
+		{"type": UnitBase.UnitType.ATGM_TEAM, "col": 8, "row": 18},
+		{"type": UnitBase.UnitType.BRDM2_RECON, "col": 9, "row": 19},
+		{"type": UnitBase.UnitType.ZSU23_AA, "col": 5, "row": 21},
 		{"type": UnitBase.UnitType.GVOZDIKA_ARTILLERY, "col": 3, "row": 22},
 	]
 
-	# 北约初始单位
+	# 北约初始单位（坐标已按场景地形修正: 原(35,20)(35,19)(33,18)在水/工事上）
 	level.nato_units = [
-		{"type": UnitBase.UnitType.M1A1_TANK, "col": 35, "row": 20},
+		{"type": UnitBase.UnitType.M1A1_TANK, "col": 35, "row": 21},
 		{"type": UnitBase.UnitType.M2_IFV, "col": 34, "row": 21},
-		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 35, "row": 19},
+		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 35, "row": 18},
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 35, "row": 22},
 		{"type": UnitBase.UnitType.M901_ITV, "col": 33, "row": 20},
 		{"type": UnitBase.UnitType.M109_ARTILLERY, "col": 37, "row": 23},
 		{"type": UnitBase.UnitType.M113_APC, "col": 36, "row": 21},
-		{"type": UnitBase.UnitType.NATO_RECON_SECTION, "col": 33, "row": 18},
+		{"type": UnitBase.UnitType.NATO_RECON_SECTION, "col": 34, "row": 18},
 	]
 
 	level.nato_ai_behavior = NATOAI.AIBehavior.SPEED_RUSH

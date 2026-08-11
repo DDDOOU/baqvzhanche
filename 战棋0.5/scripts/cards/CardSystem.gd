@@ -432,6 +432,11 @@ func _resolve_area_damage(center_col: int, center_row: int, area_size: int,
 				var dmg = base_damage * (1.0 - cell.get_defense_bonus())
 				# 阵地加固减伤
 				dmg *= (1.0 - get_fortify_buff(c, r))
+				# 修复: 卡牌范围攻击误伤中立平民必须触发惩罚（与直射路径一致）
+				if target.faction == UnitBase.Faction.NEUTRAL \
+						and target.unit_type == UnitBase.UnitType.CIVILIAN_CONVOY:
+					CombatSystem.civilian_hit.emit(target.unit_id)
+					MoraleSystem.modify_unit_morale(target.unit_id, -20, "平民伤亡")
 				target.take_damage(dmg, -1)
 
 				var was_destroyed = false
@@ -654,6 +659,9 @@ func serialize() -> Dictionary:
 
 
 func deserialize(data: Dictionary) -> void:
+	# 修复: 空/缺失存档数据不覆盖已抽手牌（旧档无 cards 字段时跳过）
+	if data.is_empty():
+		return
 	hand.clear()
 	deck.clear()
 	discard_pile.clear()
@@ -685,6 +693,7 @@ func _cards_from_state(states: Array) -> Array[CardInstance]:
 		c.card_id = s.get("id", "")
 		c.cooldown = int(s.get("cd", 0))
 		c.is_scrambled = s.get("scrambled", false)
+		_fill_card_info(c)   # 修复: 回填 name/cost/max_cooldown/data, 否则读档后卡牌空白
 		out.append(c)
 	return out
 
@@ -694,5 +703,17 @@ func _cards_from_ids(ids: Array) -> Array[CardInstance]:
 	for id in ids:
 		var c := CardInstance.new()
 		c.card_id = id
+		_fill_card_info(c)
 		out.append(c)
 	return out
+
+
+func _fill_card_info(card: CardInstance) -> void:
+	"""按 card_id 从数据库回填卡牌展示与规则字段"""
+	var data: Dictionary = CardDatabase.get_card_data(card.card_id)
+	if data.is_empty():
+		return
+	card.card_name = data.get("name", card.card_id)
+	card.cost = int(data.get("cost", 1))
+	card.max_cooldown = int(data.get("cooldown", 0))
+	card.data = data

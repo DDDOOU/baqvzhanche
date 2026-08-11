@@ -71,9 +71,10 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 				mine_triggered.emit(unit_id, col, row)
 				unit.take_damage(unit.max_health * 0.30, -1)
 				BattleLog.add_log("[触雷] %s 损失30%%生命并停止移动" % unit.unit_name, Color(1.0, 0.35, 0.25))
+				# 修复: 触雷后无论死活都停止移动（原仅死亡分支 break, 幸存者继续走完与战报矛盾）
+				remaining_mp = 0.0
 				if not unit.is_alive:
 					CombatSystem.unit_destroyed.emit(unit.unit_id, -1)
-				remaining_mp = 0.0
 				break
 
 		var prev_col: int = unit.grid_col

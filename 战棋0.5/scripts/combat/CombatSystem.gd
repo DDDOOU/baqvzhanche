@@ -66,7 +66,11 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	# 直射类命令在演算时再次校验射程/视线，防止目标移动后隔图开火。
 	if not is_card_attack and attack_type in [AttackType.DIRECT_FIRE, AttackType.ANTI_AIR, AttackType.CLOSE_ASSAULT]:
 		if not attacker.can_attack_target(target_col, target_row):
+			# 修复: 开火必消耗弹药、必有战报（目标脱离射程也算一次开火）
 			result["invalid_target"] = true
+			result["miss"] = true
+			attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
+			attack_executed.emit(attacker_id, target_col, target_row, result)
 			return result
 
 	# 卡牌攻击视为华约方，且只打击敌方（避免玩家手牌误伤己方）
@@ -381,7 +385,7 @@ func get_best_target_in_range(unit: UnitBase) -> Dictionary:
 			if not unit.can_attack_target(col, row):
 				continue
 			var target = _get_unit_at(col, row)
-			if target and target.faction != unit.faction:
+			if target and target.faction != unit.faction and target.faction != UnitBase.Faction.NEUTRAL:
 				# 评分：优先高价值、低血量目标
 				var score = target.attack_power * 2.0 - target.current_health * 0.5
 				if target.unit_type == UnitBase.UnitType.AH64_HELICOPTER and unit.is_anti_air:
@@ -422,10 +426,10 @@ func resolve_encounter_attacks(excluded_unit_ids: Array = []) -> void:
 				break  # 没有可攻击目标，提前退出
 			var t_unit: UnitBase = target.unit
 			if not t_unit or not t_unit.is_alive:
-				break
-			# 硬过滤：即使上层派系过滤失效，遭遇战也绝不开火友军
-			if t_unit.faction == attacker.faction:
-				print("[CombatSystem] 警告：跳过友军目标 %s(%s) ← %s" % [t_unit.unit_name, t_unit.faction, attacker.unit_name])
+				continue  # 修复: 目标失效应换下一个目标, 而非终止该单位全部攻击次数
+			# 硬过滤：绝不攻击友军与中立（平民/未知接触）
+			if t_unit.faction == attacker.faction or t_unit.faction == UnitBase.Faction.NEUTRAL:
+				print("[CombatSystem] 警告：跳过非敌对目标 %s(%s) ← %s" % [t_unit.unit_name, t_unit.faction, attacker.unit_name])
 				break
 			execute_attack(attacker.unit_id, t_unit.grid_col, t_unit.grid_row,
 				AttackType.DIRECT_FIRE)

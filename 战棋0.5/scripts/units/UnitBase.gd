@@ -291,7 +291,8 @@ func serialize() -> Dictionary:
 		"is_suppressed": is_suppressed,
 		"is_hidden": is_hidden,
 		"concealment_bonus": concealment_bonus,
-		"current_order": current_order
+		"current_order": current_order,
+		"morale": MoraleSystem.get_unit_morale(unit_id)
 	}
 
 

@@ -300,4 +300,7 @@ func restore_unit(data: Dictionary, parent_node: Node) -> UnitBase:
 		parent_node)
 	unit.restore(data)
 	next_unit_id = maxi(next_unit_id, unit.unit_id)
+	# 修复: create_unit 用新生成的 unit_id 初始化了士气, restore 覆盖 unit_id 后
+	# MoraleSystem 键失配 → 读档全体士气归零(BROKEN)。按存档值重新初始化。
+	MoraleSystem.init_unit_morale(unit.unit_id, int(data.get("morale", 75)))
 	return unit

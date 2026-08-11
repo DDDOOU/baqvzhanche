@@ -181,7 +181,7 @@ func _finish_execution() -> void:
 			"reason": reason,
 			"turn": TurnManager.current_turn,
 			"morale_delta": 0,
-			"kills": 0,
+			"kills": CampaignManager._level_kills,
 			"victory_tier": "victory" if is_win else "defeat"
 		}
 		BattleLog.add_log("━━━ %s ━━━" % reason, Color.GOLD)
@@ -201,7 +201,7 @@ func _finish_execution() -> void:
 			"reason": instant.reason,
 			"turn": TurnManager.current_turn,
 			"morale_delta": 0,
-			"kills": 0,
+			"kills": CampaignManager._level_kills,
 			"victory_tier": "victory" if is_win else "defeat"
 		}
 		BattleLog.add_log("━━━ %s ━━━" % instant.reason, Color.GOLD)
@@ -244,6 +244,8 @@ func _apply_level_result_and_end(result: Dictionary) -> void:
 
 func start_level(level_id: int) -> void:
 	current_level_id = level_id
+	# 修复: 清空上一关挂起的即时胜负, 防止污染新关卡结算
+	_pending_game_over.clear()
 	var level_data = LevelDatabase.get_level(current_level_id)
 	if level_data == null:
 		push_error("无效关卡ID: %d" % level_id)

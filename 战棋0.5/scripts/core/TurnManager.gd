@@ -339,10 +339,15 @@ func serialize() -> Dictionary:
 	return {
 		"current_turn": current_turn,
 		"max_turns": max_turns,
-		"orders_locked": orders_locked
+		"orders_locked": orders_locked,
+		"processed_events": processed_events  # 修复: 事件状态入档, 防止读档后当前回合事件重复触发
 	}
 
 
 func deserialize(data: Dictionary) -> void:
-	current_turn = data.get("current_turn", 1)
-	max_turns = data.get("max_turns", 15)
+	current_turn = maxi(1, int(data.get("current_turn", 1)))
+	max_turns = maxi(1, int(data.get("max_turns", 15)))   # 修复: clamp 防除零
+	orders_locked = bool(data.get("orders_locked", false))
+	processed_events.clear()
+	for e in data.get("processed_events", []):
+		processed_events.append(String(e))
