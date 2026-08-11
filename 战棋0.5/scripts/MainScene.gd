@@ -708,6 +708,12 @@ func _on_level_started(level_id: int) -> void:
 	loan_button.visible = level_id == 1
 	_sync_loan_button()
 
+	# 天气视觉（雾/雪），按关卡 weather 配置
+	var weather_layer = (load("res://scripts/ui/WeatherLayer.gd") as GDScript).new()
+	weather_layer.name = "WeatherLayer"
+	add_child(weather_layer)
+	weather_layer.setup(ld.weather)
+
 	# 教学引导：仅第 1 关且本次运行内未完成时启用
 	if level_id == 0 and not GameManager.tutorial_done and tutorial == null:
 		var tut = (load("res://scripts/ui/TutorialManager.gd") as GDScript).new()
