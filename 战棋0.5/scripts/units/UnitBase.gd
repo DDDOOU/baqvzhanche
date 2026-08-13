@@ -106,8 +106,8 @@ var current_order: Dictionary = {}
 ## === 初始化 ===
 func _ready() -> void:
 	add_to_group("units")
-	remaining_movement = movement_points
 	_init_from_type()
+	reset_movement_for_turn()
 
 
 func _init_from_type() -> void:
@@ -141,6 +141,11 @@ func _init_from_type() -> void:
 
 
 ## === 移动 ===
+func reset_movement_for_turn() -> void:
+	"""恢复本回合的有效移动点，包含士气和当前地形修正。"""
+	remaining_movement = get_effective_movement()
+
+
 func set_grid_position(col: int, row: int) -> void:
 	"""设置网格位置并更新世界坐标，同时维护格子的占用单位"""
 	# 先释放旧格子占用

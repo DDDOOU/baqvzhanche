@@ -63,6 +63,7 @@ func start_planning_phase() -> void:
 	orders_locked = false
 	player_orders.clear()
 	ai_orders.clear()
+	_reset_unit_movement()
 
 	print("[TurnManager] === 第 %d 回合 计划阶段开始 ===" % current_turn)
 	planning_phase_started.emit(current_turn)
@@ -75,6 +76,13 @@ func start_planning_phase() -> void:
 
 	# 触发本回合开始事件
 	_trigger_turn_events("turn_start")
+
+
+func _reset_unit_movement() -> void:
+	"""每个计划阶段统一恢复单位移动点，避免依赖特定场景的 UI 信号回调。"""
+	for node in Engine.get_main_loop().get_nodes_in_group("units"):
+		if node is UnitBase and node.is_alive:
+			node.reset_movement_for_turn()
 
 
 func lock_all_orders() -> void:
