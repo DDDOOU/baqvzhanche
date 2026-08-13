@@ -1,0 +1,4 @@
+res://scenes/buildings/building_2x2.tscn
+res://scripts/levels/Building2D.gd
+res://scenes/levels/level_01.tscn
+res://resources/tilesets/isometric_terrain.tres

@@ -1,0 +1,53 @@
+Godot Engine v4.7.1.stable.steam.a13da4feb - https://godotengine.org
+
+[LevelDatabase] 已加载 10 个关卡数据
+[LineOfSight] 四边形视线系统就绪
+[EMISystem] 电磁干扰系统就绪
+[MoraleSystem] 士气系统就绪
+[CampaignManager] 战役管理器就绪 — 初始士气: 80
+[CardSystem] 手牌系统就绪
+[CombatSystem] 战斗系统就绪
+[MovementSystem] 移动系统就绪
+[TurnManager] 回合管理系统就绪
+[NATOAI] 北约AI控制器就绪 — 初始行为: 速胜
+[GameManager] 子系统初始化完成
+[GameManager] Silent Reckoning·1987 v1.0.0 (build 1) 已启动
+[BattleLog] 战报系统就绪
+[VictoryManager] 胜利判定系统就绪
+[UnitRenderer] 单位渲染器就绪
+[CardUI] 手牌UI就绪
+==================================================
+  Silent Reckoning·1987  静默行动·1987
+==================================================
+[MainScene] 建筑 建筑 占地: (5,6), (4,5), (4,6), (5,5)
+[MainScene] 使用设计关卡 res://scenes/levels/level_01.tscn，地图尺寸=28x21，原始起点=(-10,-17)
+[MainScene] camera zoom=0.20 offset=(20,138) viewport=64x64
+[GameManager] 状态切换: BOOT → LEVEL_INTRO
+[GridManager] 四边形地图初始化: 28×21
+[CampaignManager] 初始化第 0 关: 边境晨雾
+[EMISystem] 第1关 EMI基础强度: 0%
+[VictoryManager] 关卡设置 — 指挥中心 WP(4,6) NATO(15,6) 最大回合8
+[MainScene] 开始第 1 关
+[战报] 第 1 关 开始
+[UnitDatabase] 创建单位: 指挥组 (ID=1001) at (4,6)
+[UnitDatabase] 创建单位: 步兵班 (ID=1002) at (5,5)
+[UnitDatabase] 创建单位: 步兵班 (ID=1003) at (5,7)
+[UnitDatabase] 创建单位: T-72B 主战坦克 (ID=1004) at (4,7)
+[UnitDatabase] 创建单位: BMP-2 步兵战车 (ID=1005) at (5,6)
+[UnitDatabase] 创建单位: 侦察连 (ID=1006) at (3,6)
+[UnitDatabase] 创建单位: M1A1 主战坦克 (ID=1007) at (15,6)
+[UnitDatabase] 创建单位: M2 Bradley 步战车 (ID=1008) at (14,7)
+[UnitDatabase] 创建单位: 机械化步兵 (ID=1009) at (15,5)
+[UnitDatabase] 创建单位: 机械化步兵 (ID=1010) at (15,8)
+[VictoryManager] 初始单位数: 华约 6
+[CardSystem] 关卡初始化 — 牌库: 7 张
+[MainScene] 抽到: 坐标预判
+[MainScene] 抽到: 盲射弹幕
+[MainScene] 抽到: 呼叫炮击
+[MainScene] 抽到: 无线电静默
+[MainScene] 抽到: 烟雾遮障
+[MainScene] 抽到: 电磁反制
+[MainScene] 抽到: 阵地加固
+[CardSystem] 补充手牌: 抽 7 张 (当前 7/7)
+[CardSystem] 手牌调整至 7 张 (当前 7)
+[MainScene] 起手调整至7张 — 按 Tab 切换手牌面板
