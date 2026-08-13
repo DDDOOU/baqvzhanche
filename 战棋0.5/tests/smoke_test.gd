@@ -27,6 +27,15 @@ func _run() -> void:
 	_check(GridManager.manhattan_distance(1, 2, 4, 6) == 7, "四方向曼哈顿距离应正确")
 	var tank := _get_unit_by_id(1004)
 	_check(tank != null and TilePathfinding.is_armored(tank), "坦克应按装甲单位寻路")
+	if tank != null:
+		tank.remaining_movement = 0
+		turn_manager.start_planning_phase()
+		_check(tank.remaining_movement == tank.get_effective_movement(), "每回合计划阶段开始应恢复有效移动点")
+
+	_check(main.briefing_panel != null, "关卡开场应显示任务简报")
+	if main.briefing_panel != null:
+		main._on_briefing_start_pressed()
+		_check(main.briefing_panel == null, "任务简报应能关闭")
 
 	var fogged_unit = get_tree().get_first_node_in_group("units") as UnitBase
 	_check(fogged_unit != null and fogged_unit.has_meta("base_vision_range"), "雾效应保存基础视野")
@@ -81,7 +90,7 @@ func _run() -> void:
 	_check(result.game_over and result.winner == UnitBase.Faction.NATO, "华约指挥单位被毁应立即判负")
 
 	if _failures.is_empty():
-		print("[SMOKE TEST] PASS (%d checks)" % 25)
+		print("[SMOKE TEST] PASS (%d checks)" % 28)
 		get_tree().quit(0)
 		return
 

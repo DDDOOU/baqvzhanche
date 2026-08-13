@@ -869,6 +869,9 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		_handle_key_input(event)
 		return
+	# 简报是顶层 GUI；打开时把鼠标事件留给按钮，避免战场输入提前吞掉点击。
+	if briefing_panel:
+		return
 	if is_paused:
 		return
 
@@ -1031,6 +1034,10 @@ func _clear_pending_move(clear_path_now: bool) -> void:
 func _handle_key_input(event: InputEventKey) -> void:
 	if event.is_action_pressed("toggle_fullscreen") or (event.alt_pressed and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
 		_toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
+	if briefing_panel and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_ESCAPE]:
+		_on_briefing_start_pressed()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("pause_game"):
@@ -1261,10 +1268,6 @@ func _on_planning_started(turn: int) -> void:
 			tutorial.notify("planning_r1")
 		elif turn == 2:
 			tutorial.notify("planning_r2")
-	# 重置所有单位移动点数
-	for u in get_tree().get_nodes_in_group("units"):
-		if u.is_alive:
-			u.remaining_movement = u.get_effective_movement()  # 修复: 含士气修正, 与寻路预算一致
 
 func _on_execution_started(turn: int) -> void:
 	print("[MainScene] 第%d回合演算开始" % turn)
