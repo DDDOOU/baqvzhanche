@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_2x2.tscn" id="1"]
+[node name="战壕入口_TrenchEntrance" instance=ExtResource("1")]
+building_index = 3
+building_name = "战壕入口 / Trench Entrance"
+visual_scale = Vector2(1, 1)
