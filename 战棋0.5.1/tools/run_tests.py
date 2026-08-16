@@ -43,6 +43,7 @@ def main() -> int:
     )
     (user_root / "Temp").mkdir(parents=True, exist_ok=True)
     suites = (
+        ("res://tests/unit_config_test.tscn", "[UNIT CONFIG TEST] PASS"),
         ("res://tests/smoke_test.tscn", "[SMOKE TEST] PASS"),
         ("res://tests/level_02_smoke_test.tscn", "[LEVEL 02 TEST] PASS"),
         ("res://tests/campaign_framework_test.tscn", "[CAMPAIGN FRAMEWORK TEST] PASS"),
@@ -60,7 +61,7 @@ def main() -> int:
             check=False,
         )
         print(result.stdout, end="")
-        bad_markers = ("SCRIPT ERROR", "[SMOKE TEST] FAIL", "[LEVEL 02 TEST] FAIL", "[CAMPAIGN FRAMEWORK TEST] FAIL")
+        bad_markers = ("SCRIPT ERROR", "[UNIT CONFIG TEST] FAIL", "[SMOKE TEST] FAIL", "[LEVEL 02 TEST] FAIL", "[CAMPAIGN FRAMEWORK TEST] FAIL")
         if result.returncode != 0 or pass_marker not in result.stdout or any(x in result.stdout for x in bad_markers):
             return 1
     return 0

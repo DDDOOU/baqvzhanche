@@ -75,6 +75,20 @@ var is_suppressed: bool = false
 @export var move_speed: float = 1.0           # 移动速度倍率
 var remaining_movement: int = 0
 
+## 行动点与演绎先手（由Excel同步配置加载；战斗流程将在后续版本正式消费）
+@export var base_action_points: int = 1
+@export var can_store_action_points: bool = false
+@export var max_stored_action_points: int = 0
+@export_range(1, 5, 1) var initiative: int = 3
+@export var action_order: String = "移动→攻击"
+@export var can_attack_after_move: bool = true
+@export var can_move_after_attack: bool = false
+@export var requires_stationary_attack: bool = false
+@export var reaction_action_type: String = "无"
+@export var special_action_replaces_attack: bool = false
+var remaining_action_points: int = 0
+var stored_action_points: int = 0
+
 ## 视野与侦察
 @export var vision_range: int = 6             # 基础视野（格数）
 @export var recon_bonus: int = 0              # 侦察加成（侦察连+2）
@@ -86,7 +100,21 @@ var remaining_movement: int = 0
 @export var can_transport: bool = false        # 可运输步兵
 @export var is_anti_air: bool = false          # 可防空
 @export var is_command: bool = false           # 是指挥单位
+@export var transport_capacity: int = 0
+@export var anti_air_bonus: float = 0.0
+@export var area_effect_radius: int = 0
+@export var can_destroy_bridge: bool = false
+@export var can_cross_river: bool = false
+@export var can_cross_mountain: bool = false
+@export var command_radius: int = 0
 var embarked_unit = null                       # 搭载的单位（BMP-2）
+
+## 单位特性文本；先作为数据层字段，后续战斗逻辑按枚举/字段实现具体效果。
+@export var trait_name: String = ""
+@export var trait_trigger: String = ""
+@export var trait_effect: String = ""
+@export var trait_limit: String = ""
+@export var config_status: String = ""
 
 ## 尺寸（占格数）
 @export var size_cols: int = 1                 # 横向占格
@@ -108,36 +136,76 @@ func _ready() -> void:
 	add_to_group("units")
 	_init_from_type()
 	reset_movement_for_turn()
+	reset_action_points_for_turn()
 
 
 func _init_from_type() -> void:
 	"""根据单位类型设置默认属性"""
 	var stats = UnitDatabase.get_unit_stats(unit_type)
 	if not stats.is_empty():
-		max_health = stats.get("health", 100)
-		current_health = max_health
-		max_ammo = stats.get("ammo", 100)
-		current_ammo = max_ammo
-		attack_power = stats.get("attack", 30)
-		armor_value = stats.get("armor", 20)
-		penetration = stats.get("penetration", 10)
-		movement_points = stats.get("movement", 6)
-		vision_range = stats.get("vision", 6)
-		recon_bonus = stats.get("recon_bonus", 0)
-		attack_range = stats.get("range", 5)
-		accuracy = stats.get("accuracy", 0.7)
-		can_lay_mines = stats.get("can_lay_mines", false)
-		can_clear_mines = stats.get("can_clear_mines", false)
-		can_repair_bridge = stats.get("can_repair_bridge", false)
-		can_transport = stats.get("can_transport", false)
-		is_anti_air = stats.get("anti_air", false)
-		is_command = stats.get("is_command", false)
-		var sz = stats.get("size", Vector2i(1, 1))
-		size_cols = sz.x
-		size_rows = sz.y
+		apply_config_stats(stats, true)
 
 	# 初始化士气
 	MoraleSystem.init_unit_morale(unit_id, 70)  # 默认70: 避免开局全员ELATED(阈值75)
+
+
+func apply_config_stats(stats: Dictionary, reset_runtime_values: bool = false) -> void:
+	"""把UnitDatabase配置统一应用到实例，避免工厂与_ready出现两套字段。"""
+	max_health = float(stats.get("health", 100))
+	max_ammo = int(stats.get("ammo", 100))
+	attack_power = float(stats.get("attack", 30))
+	armor_value = float(stats.get("armor", 20))
+	penetration = float(stats.get("penetration", 10))
+	accuracy = float(stats.get("accuracy", 0.7))
+	attack_range = int(stats.get("range", 5))
+	attacks_per_turn = int(stats.get("max_attacks_per_turn", 1))
+	movement_points = int(stats.get("movement", 6))
+	move_speed = float(stats.get("move_speed", 1.0))
+	vision_range = int(stats.get("vision", 6))
+	recon_bonus = int(stats.get("recon_bonus", 0))
+
+	can_lay_mines = bool(stats.get("can_lay_mines", false))
+	can_clear_mines = bool(stats.get("can_clear_mines", false))
+	can_repair_bridge = bool(stats.get("can_repair_bridge", false))
+	can_destroy_bridge = bool(stats.get("can_destroy_bridge", false))
+	can_transport = bool(stats.get("can_transport", false))
+	transport_capacity = int(stats.get("transport_capacity", 0))
+	is_anti_air = bool(stats.get("anti_air", false))
+	anti_air_bonus = float(stats.get("anti_air_bonus", 0.0))
+	area_effect_radius = int(stats.get("area_effect", 0))
+	is_command = bool(stats.get("is_command", false))
+	command_radius = int(stats.get("command_radius", 0))
+	can_cross_river = bool(stats.get("can_cross_river", false))
+	can_cross_mountain = bool(stats.get("can_cross_mountain", false))
+
+	base_action_points = int(stats.get("base_action_points", 1))
+	can_store_action_points = bool(stats.get("can_store_action_points", false))
+	max_stored_action_points = int(stats.get("max_stored_action_points", 0))
+	initiative = clampi(int(stats.get("initiative", 3)), 1, 5)
+	action_order = String(stats.get("action_order", "移动→攻击"))
+	can_attack_after_move = bool(stats.get("can_attack_after_move", true))
+	can_move_after_attack = bool(stats.get("can_move_after_attack", false))
+	requires_stationary_attack = bool(stats.get("requires_stationary_attack", false))
+	reaction_action_type = String(stats.get("reaction_action_type", "无"))
+	special_action_replaces_attack = bool(stats.get("special_action_replaces_attack", false))
+	trait_name = String(stats.get("trait_name", ""))
+	trait_trigger = String(stats.get("trait_trigger", ""))
+	trait_effect = String(stats.get("trait_effect", ""))
+	trait_limit = String(stats.get("trait_limit", ""))
+	config_status = String(stats.get("config_status", ""))
+
+	var sz: Vector2i = stats.get("size", Vector2i(1, 1)) as Vector2i
+	size_cols = sz.x
+	size_rows = sz.y
+	if reset_runtime_values:
+		current_health = max_health
+		current_ammo = max_ammo
+		remaining_action_points = base_action_points + stored_action_points
+
+
+func reset_action_points_for_turn() -> void:
+	remaining_action_points = maxi(0, base_action_points + stored_action_points)
+	stored_action_points = 0
 
 
 ## === 移动 ===
@@ -294,6 +362,8 @@ func serialize() -> Dictionary:
 		"facing_angle": facing_angle,
 		"is_alive": is_alive,
 		"remaining_movement": remaining_movement,
+		"remaining_action_points": remaining_action_points,
+		"stored_action_points": stored_action_points,
 		"vision_range": vision_range,
 		"base_vision_range": int(get_meta("base_vision_range", vision_range)),
 		"is_suppressed": is_suppressed,
@@ -313,6 +383,8 @@ func restore(data: Dictionary) -> void:
 	facing_angle = float(data.get("facing_angle", 0.0))
 	is_alive = bool(data.get("is_alive", true))
 	remaining_movement = int(data.get("remaining_movement", movement_points))
+	remaining_action_points = int(data.get("remaining_action_points", base_action_points))
+	stored_action_points = int(data.get("stored_action_points", 0))
 	vision_range = int(data.get("vision_range", vision_range))
 	set_meta("base_vision_range", int(data.get("base_vision_range", vision_range)))
 	is_suppressed = bool(data.get("is_suppressed", false))

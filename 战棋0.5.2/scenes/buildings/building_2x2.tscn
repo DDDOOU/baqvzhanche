@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/levels/Building2D.gd" id="1_building"]
+[ext_resource type="Texture2D" path="res://assets/outdoor_buildings_64/fortifications/fortifications_01.png" id="2_default"]
+
+[node name="Building2D" type="Node2D"]
+y_sort_enabled = true
+script = ExtResource("1_building")
+
+[node name="Visual" type="Sprite2D" parent="."]
+texture_filter = 1
+position = Vector2(0, -12)
+texture = ExtResource("2_default")
+
+[node name="FootprintCenter" type="Marker2D" parent="."]

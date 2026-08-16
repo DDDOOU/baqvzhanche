@@ -7,8 +7,62 @@
 # ==============================================================================
 extends Node
 
+const EXTERNAL_CONFIG_PATH := "res://data/units/unit_config.json"
+
 ## === 单位ID生成器 ===
 var next_unit_id: int = 1000
+var _external_unit_stats: Dictionary = {}
+var _external_config_loaded := false
+
+
+func _ready() -> void:
+	reload_unit_config()
+
+
+func reload_unit_config() -> bool:
+	"""重新读取由Excel同步工具生成的JSON；失败时继续使用代码内置数据。"""
+	_external_unit_stats.clear()
+	_external_config_loaded = false
+	if not FileAccess.file_exists(EXTERNAL_CONFIG_PATH):
+		push_warning("[UnitDatabase] 外部单位配置不存在，使用代码默认值：%s" % EXTERNAL_CONFIG_PATH)
+		return false
+
+	var file := FileAccess.open(EXTERNAL_CONFIG_PATH, FileAccess.READ)
+	if file == null:
+		push_warning("[UnitDatabase] 无法读取外部单位配置，使用代码默认值")
+		return false
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not parsed is Dictionary:
+		push_warning("[UnitDatabase] 外部单位配置JSON格式无效，使用代码默认值")
+		return false
+	var payload := parsed as Dictionary
+	var raw_units: Dictionary = payload.get("units", {}) as Dictionary
+	for enum_key in raw_units.keys():
+		var enum_name := String(enum_key)
+		if not UnitBase.UnitType.has(enum_name):
+			push_warning("[UnitDatabase] 配置中存在未知单位枚举：%s" % enum_name)
+			continue
+		var raw_stats: Dictionary = raw_units[enum_key] as Dictionary
+		var stats := raw_stats.duplicate(true)
+		stats["size"] = Vector2i(
+			int(raw_stats.get("size_cols", 1)),
+			int(raw_stats.get("size_rows", 1)))
+		_external_unit_stats[int(UnitBase.UnitType[enum_name])] = stats
+
+	_external_config_loaded = not _external_unit_stats.is_empty()
+	if _external_config_loaded:
+		print("[UnitDatabase] 已加载Excel同步配置：%d种单位" % _external_unit_stats.size())
+	else:
+		push_warning("[UnitDatabase] 外部配置没有有效单位，使用代码默认值")
+	return _external_config_loaded
+
+
+func is_external_config_loaded() -> bool:
+	return _external_config_loaded
+
+
+func get_external_config_count() -> int:
+	return _external_unit_stats.size()
 
 ## === 华约单位属性表 ===
 const WP_UNIT_STATS: Dictionary = {
@@ -214,6 +268,8 @@ const NEUTRAL_UNIT_STATS: Dictionary = {
 ## === 查询方法 ===
 func get_unit_stats(unit_type: UnitBase.UnitType) -> Dictionary:
 	"""获取单位类型的属性"""
+	if unit_type in _external_unit_stats:
+		return _external_unit_stats[unit_type]
 	if unit_type in WP_UNIT_STATS:
 		return WP_UNIT_STATS[unit_type]
 	if unit_type in NATO_UNIT_STATS:
@@ -252,31 +308,7 @@ func create_unit(unit_type: UnitBase.UnitType, faction: UnitBase.Faction,
 	unit.unit_name = get_unit_name(unit_type)
 
 	var stats = get_unit_stats(unit_type)
-	unit.max_health = stats.get("health", 100)
-	unit.current_health = unit.max_health
-	unit.max_ammo = stats.get("ammo", 100)
-	unit.current_ammo = unit.max_ammo
-	unit.attack_power = stats.get("attack", 30)
-	unit.armor_value = stats.get("armor", 20)
-	unit.penetration = stats.get("penetration", 10)
-	unit.accuracy = stats.get("accuracy", 0.7)
-	unit.attack_range = stats.get("range", 5)
-	unit.movement_points = stats.get("movement", 6)
-	unit.vision_range = stats.get("vision", 5)
-	unit.recon_bonus = stats.get("recon_bonus", 0)
-
-	# 特殊能力
-	unit.can_lay_mines = stats.get("can_lay_mines", false)
-	unit.can_clear_mines = stats.get("can_clear_mines", false)
-	unit.can_repair_bridge = stats.get("can_repair_bridge", false)
-	unit.can_transport = stats.get("can_transport", false)
-	unit.is_anti_air = stats.get("anti_air", false)
-	unit.is_command = stats.get("is_command", false)
-
-	# 尺寸
-	var sz = stats.get("size", Vector2i(1, 1))
-	unit.size_cols = sz.x
-	unit.size_rows = sz.y
+	unit.apply_config_stats(stats, true)
 
 	unit.set_grid_position(col, row)
 

@@ -1,5 +1,13 @@
 # Silent Reckoning·1987 静默行动·1987
 
+## 单位配置同步
+
+单位属性的设计源文件位于 `res://config/source/unit_config.xlsx`。
+
+修改Excel并保存后，在Godot顶部菜单选择“项目/Project → 工具/Tools → 同步单位配置（Excel → JSON）”。工具会生成 `res://data/units/unit_config.json`。游戏启动时，`UnitDatabase.gd`优先读取该JSON；如果文件缺失或格式错误，则回退到代码内置属性，不会阻止游戏启动。
+
+Excel目前包含华约与北约23种单位，中立单位仍使用代码默认值。同步依赖Windows版Microsoft Excel；同步工具只创建并关闭自己的后台Excel进程，不会关闭用户已经打开的Excel或Godot。
+
 ## 当前可玩内容
 
 - 当前十关均可从关卡选择进入，并可在胜利后连续进入下一关；第1、2关已有专用场景，第3至第10关使用可替换的功能地图框架。
