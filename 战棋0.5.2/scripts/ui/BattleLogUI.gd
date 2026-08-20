@@ -39,13 +39,22 @@ func _layout() -> void:
 		log_label.bbcode_enabled = true
 		log_label.scroll_following = true
 		log_label.selection_enabled = false
-		log_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# PASS：自身处理滚轮（可滚动查看历史战报），同时事件继续传播，
+		# 不拦截棋盘点击。父容器 BattleLogUI 已 IGNORE，不会挡住棋盘。
+		log_label.mouse_filter = Control.MOUSE_FILTER_PASS
 		log_label.add_theme_stylebox_override("normal", _make_bg_stylebox())
 		add_child(log_label)
 
 	log_label.position = Vector2(panel_x, panel_y)
 	log_label.size = Vector2(panel_w, panel_h)
 	queue_redraw()
+
+
+func get_panel_rect() -> Rect2:
+	# 暴露战报面板在屏幕上的矩形，供 MainScene 判定鼠标是否悬停在 UI 上。
+	if log_label:
+		return log_label.get_global_rect()
+	return Rect2()
 
 
 func _make_bg_stylebox() -> StyleBoxFlat:

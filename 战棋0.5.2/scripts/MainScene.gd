@@ -24,6 +24,7 @@ var confirm_move_button: Button
 var cancel_move_button: Button
 var loan_button: Button
 var initiative_bar: InitiativeBar
+var battle_log_ui: BattleLogUI
 var pause_overlay: PauseMenu
 var selected_unit: UnitBase = null
 var pending_move_unit: UnitBase = null
@@ -389,7 +390,7 @@ func _setup_ui() -> void:
 	_create_victory_progress_panel(hud)
 	_create_pause_overlay()
 
-	var battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
+	battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
 	hud.add_child(battle_log_ui)
 
 
@@ -1213,7 +1214,8 @@ func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 
 func _is_pointer_over_interface(pos: Vector2) -> bool:
 	return _is_pointer_over_button(pos) or _is_pointer_over_card_panel(pos) \
-		or (initiative_bar != null and initiative_bar.contains_screen_point(pos))
+		or (initiative_bar != null and initiative_bar.contains_screen_point(pos)) \
+		or (battle_log_ui != null and battle_log_ui.get_panel_rect().has_point(pos))
 
 
 func _focus_camera_on_unit(unit_id: int) -> void:
