@@ -63,10 +63,12 @@ func set_level(level_id: int) -> void:
 func tick_turn(turn: int) -> void:
 	"""每回合更新EMI状态"""
 	# 第10关特殊处理：根据回合动态变化
+	# 修复批B: 曲线滞后 — tick_turn 在回合结算时调用, 用 turn 而非 turn-1:
+	# 第1回合结算时设置第2回合的 EMI (CURVE[1]), 玩家第N回合看到 CURVE[N-1] 与设计吻合。
 	var level_id = GameManager.current_level_id
 	if level_id == 9:  # 第10关 (0-indexed)
-		if turn - 1 < LEVEL_10_EMI_CURVE.size():
-			base_intensity = LEVEL_10_EMI_CURVE[turn - 1]
+		if turn < LEVEL_10_EMI_CURVE.size():
+			base_intensity = LEVEL_10_EMI_CURVE[turn]
 
 	# 先重算当前强度（临时修正在本回合演绎中仍生效），再在末尾衰减。
 	# 修复: 原实现在 tick_turn 开头就减 duration, "持续2回合"实际只有1.x回合生效。
@@ -123,17 +125,6 @@ func apply_electronics_modifier(base_efficiency: float) -> float:
 func should_scramble_card() -> bool:
 	"""判定手中的一张牌是否变为乱码"""
 	return randf() < card_scramble_chance
-
-
-## === 手牌干扰 ===
-func try_scramble_card() -> String:
-	"""尝试将一张手牌变为乱码，返回被干扰的卡牌ID"""
-	if randf() < card_scramble_chance:
-		var card_id = CardSystem.get_random_card_id()
-		if not card_id.is_empty():
-			card_scrambled.emit(card_id)
-			return card_id
-	return ""
 
 
 ## === 临时修正（手牌效果） ===

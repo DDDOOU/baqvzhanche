@@ -320,21 +320,6 @@ func _on_intro_confirmed() -> void:
 	_intro_confirm_requested = true
 
 
-func _on_level_end(result: Dictionary) -> void:
-	# 更新战役状态
-	CampaignManager.apply_level_result(result)
-	# 检查是否最后一关
-	if current_level_id >= 9:  # 第10关（索引9）
-		var final = CampaignManager.get_final_result()
-		campaign_ended.emit(final)
-		if final.is_victory:
-			change_state(GameState.VICTORY)
-		else:
-			change_state(GameState.DEFEAT)
-	else:
-		change_state(GameState.CAMPAIGN_MAP)
-
-
 func _initialize_subsystems() -> void:
 	# 确保所有 autoload 已就绪（Godot按名称顺序加载）
 	VictoryManager.game_over.connect(_on_game_over)

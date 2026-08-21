@@ -1400,7 +1400,7 @@ func _on_right_click(pos: Vector2) -> void:
 	if pending_move_unit:
 		_cancel_pending_move()
 		return
-	# 鍚﹀垯鍙栨秷鎵€鏈夐€夋嫨
+	# 否则取消所有选择
 	selected_unit = null
 	tile_grid.clear_highlights()
 	tile_grid.clear_card_highlight()

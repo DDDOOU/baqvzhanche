@@ -84,15 +84,3 @@ func _bresenham_line(x0: int, y0: int, x1: int, y1: int) -> Array:
 			err += dx
 			y += sy
 	return points
-
-
-func get_visible_cells(unit: UnitBase, ignore_emi: bool = false) -> Array:
-	var base_range = unit.get_effective_vision_range()
-	if not ignore_emi:
-		base_range = EMISystem.apply_recon_range_modifier(base_range)
-	var visible: Array = []
-	var candidates = GridManager.get_cells_in_range(unit.grid_col, unit.grid_row, base_range)
-	for p in candidates:
-		if check_los(unit.grid_col, unit.grid_row, p.x, p.y).has_los:
-			visible.append(p)
-	return visible

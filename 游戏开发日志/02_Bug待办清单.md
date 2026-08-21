@@ -37,24 +37,25 @@
 - [x] [P2] 弹药系统 - **无补给机制**：打完即废（T72 40 发），resupply 指令空实现。（建议：实现补给车/回合自动补充，或改每回合开火次数）→ 已修（0.6.0：回合结算自动补弹，指挥中心半径内全额其余50%）
 - [x] [P2] TurnManager.gd:163-164 - **WEGO 速度排序失效**：move_speed 恒 1.0（数据库无字段）。（建议：补 speed 字段）→ 已修（0.6.0：25 单位补全 move_speed）
 - [x] [P2] MovementSystem.gd:75-83 - **触雷幸存者重复处理同格**：set_grid_position/unit_step/steps_completed 二次执行。（建议：触雷分支统一 break）→ 已修（0.6.0：统一 break）
-- [ ] [P2] 空中单位 - **AH-64 直升机无机制差异化**：无高度/弹药挂载/无法被地面近战等特殊规则（除防空加成）。
+- [ ] [P2] 空中单位 - **AH-64 直升机无机制差异化**：无高度/弹药挂载/无法被地面近战等特殊规则（除防空加成）。→ 已修（0.6.0：可越河越山 + 地面近战不反击）
 
 ## P3 代码质量 / 平衡 / 数据
 
-- [ ] [P3] 死代码群清理（接入或删除）：AIBehaviorType、UnitData（资源类）、GameManager._on_level_end、TurnManager._execute_orders/_execute_single_order、CardSystem.execute_card 死路径、UnitRenderer.UNIT_SHAPES、EMISystem.try_scramble_card/get_visible_cells、NATOAI.share_intel（DamageCalculator 已转正接入，MovementSystem.validate_path 已删除，EMISystem.apply_countermeasure 已激活）
+- [ ] [P3] 死代码群清理（接入或删除）：AIBehaviorType、UnitData（资源类）、GameManager._on_level_end、TurnManager._execute_orders/_execute_single_order、CardSystem.execute_card 死路径、UnitRenderer.UNIT_SHAPES、EMISystem.try_scramble_card/get_visible_cells、NATOAI.share_intel（DamageCalculator 已转正接入，MovementSystem.validate_path 已删除，EMISystem.apply_countermeasure 已激活）→ 已修（0.6.0：AIBehaviorType/UnitData 文件删除，_on_level_end/UNIT_SHAPES/try_scramble_card/get_visible_cells/share_intel 删除；execute_card 保留——TurnManager use_card 路径在用）
 - [x] [P3] project.godot - **输入映射双轨**：6 个动作（camera/pause/fullscreen）运行时补建未入配置；配置的 5 个动作（ui_click_left 等）零消费；plan_cancel events 含 null 元素。→ 已修（0.6.0：代码消费配置动作 plan_confirm/plan_cancel/toggle_card_panel，运行时补建兜底，plan_cancel null 移除）
-- [ ] [P3] 注释乱码 - 部分文件 GBK/UTF-8 混用（CardUI.gd:6 等），统一 UTF-8。
+- [x] [P3] 注释乱码 - 部分文件 GBK/UTF-8 混用（CardUI.gd:6 等），统一 UTF-8。→ 已修（0.6.0：CardUI.gd 4 处 + MainScene.gd 1 处）
+- [x] [P3] UnitDatabase 字段无消费者：anti_air_bonus（SA13/ZSU23，现硬编码 +0.15/×1.4）、command_radius（指挥鼓舞硬编码距离≤2）、transport_capacity（搭载流程）、can_destroy_bridge、AH64 can_cross_river/mountain。→ 已修（0.6.0：anti_air_bonus 数据化、command_radius 补给用、搭载系统、炸桥指令、直升机越地形）
+- [x] [P3] 平衡 - 初始士气 70 后受创扣减上限 10 vs rally +15/回合：崩溃单位 1 回合回动摇 2 回合回稳定，受创追不上。建议 rally +10 或加条件。→ 已修（0.6.0：rally +15→+10）
 - [ ] [P3] UnitBase 多格单位视觉重叠 - T72(4,7) 2×2 与步兵/碉堡占地重叠（引擎按锚点判占用无功能冲突，美术迭代错开）。
-- [ ] [P3] HexPathfinding.gd:81-83 vs MovementSystem - 高度差成本不一致：寻路上坡 +1/级，执行不扣 → 执行比 UI 宽松。
-- [ ] [P3] HexPathfinding.gd:30-36 - find_path 终点不检查占用（AI 追敌最后一步进敌占格，blocked 停在相邻格）。
-- [ ] [P3] UnitBase.take_damage - 无 is_alive 防御（死亡后再受伤重复走 _on_death）。
-- [ ] [P3] UnitDatabase 字段无消费者：anti_air_bonus（SA13/ZSU23，现硬编码 +0.15/×1.4）、command_radius（指挥鼓舞硬编码距离≤2）、transport_capacity（搭载流程）、can_destroy_bridge、AH64 can_cross_river/mountain。
-- [ ] [P3] 平衡 - 初始士气 70 后受创扣减上限 10 vs rally +15/回合：崩溃单位 1 回合回动摇 2 回合回稳定，受创追不上。建议 rally +10 或加条件。
-- [ ] [P3] LevelDatabase.gd:105 - 地图尺寸声明 40×45 vs 场景 45×40 残留（运行期以场景为准，DB 声明与 _build_level_01_terrain 死代码）。
-- [ ] [P3] 第 3-10 关无 turn_events（仅第 6 关 3 条）——增援/EMI 变化/叙事密度参差（第 7 关"全频段窒息"EMI 100% 应有事件）。
-- [ ] [P3] EMISystem LEVEL_10_EMI_CURVE 在 tick_turn 推进 → 曲线整体滞后 1 回合（推断）。
-- [ ] [P3] smoke_test 无第 1 关 VP/出生点数量断言（0.5.9 的 VP 双轨回归未被测试捕获）。
-- [ ] [P3] LevelData 元数据无消费方：designer_intent/hidden_intel/special_events/narrative_branches/hidden_objective（纯设计备注）。
+- [ ] [P3] HexPathfinding.gd:81-83 vs MovementSystem - 高度差成本不一致：寻路上坡 +1/级，执行不扣 → 执行比 UI 宽松。（已核实：TilePathfinding/MovementSystem 三处成本一致，清单引用旧 Hex 文件名）
+- [ ] [P3] HexPathfinding.gd:30-36 - find_path 终点不检查占用（AI 追敌最后一步进敌占格，blocked 停在相邻格）。（已核实：TilePathfinding.find_path 已检查占用，清单引用旧 Hex 文件名）
+- [ ] [P3] UnitBase.take_damage - 无 is_alive 防御（死亡后再受伤重复走 _on_death）。（已修 0.6.0：take_damage 补 is_alive 防御）
+- [x] [P3] 平衡 - 初始士气 70 后受创扣减上限 10 vs rally +15/回合：崩溃单位 1 回合回动摇 2 回合回稳定，受创追不上。建议 rally +10 或加条件。→ 已修（0.6.0：rally +15→+10）
+- [ ] [P3] LevelDatabase.gd:105 - 地图尺寸声明 40×45 vs 场景 45×40 残留（运行期以场景为准，DB 声明与 _build_level_01_terrain 死代码）。（已核实：DB 声明 40×45 与 level_01.tscn 一致，清单记录过时）
+- [x] [P3] 第 3-10 关无 turn_events（仅第 6 关 3 条）——增援/EMI 变化/叙事密度参差（第 7 关"全频段窒息"EMI 100% 应有事件）。→ 已修（0.6.0：第3/7/8/9/10关补 radio_dialogue 剧情，第5关 reserve_ready）
+- [x] [P3] EMISystem LEVEL_10_EMI_CURVE 在 tick_turn 推进 → 曲线整体滞后 1 回合（推断）。→ 已修（0.6.0：turn 索引替代 turn-1）
+- [x] [P3] smoke_test 无第 1 关 VP/出生点数量断言（0.5.9 的 VP 双轨回归未被测试捕获）。→ 已修（0.6.0：补断言，49→52 checks）
+- [ ] [P3] LevelData 元数据无消费方：designer_intent/hidden_intel/special_events/narrative_branches/hidden_objective（纯设计备注）。（narrative_branches 已作为剧情素材来源，其余为设计备注保留）
 
 ## 功能缺口（产品向）
 

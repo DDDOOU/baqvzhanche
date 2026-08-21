@@ -123,7 +123,39 @@ var stored_action_points: int = 0
 @export var can_cross_river: bool = false
 @export var can_cross_mountain: bool = false
 @export var command_radius: int = 0
-var embarked_unit = null                       # 搭载的单位（BMP-2）
+var embarked_unit: UnitBase = null             # 搭载的单位（BMP-2 修复批B: transport 字段消费）
+
+## === 搭载 ===
+func mount_passenger(unit: UnitBase) -> bool:
+	"""步兵搭载进载具。修复批B: transport_capacity 字段消费（原为死字段）。"""
+	if not can_transport or transport_capacity <= 0 or embarked_unit != null:
+		return false
+	if unit == null or not unit.is_alive or unit.faction != faction:
+		return false
+	if unit.unit_type in [UnitType.INFANTRY_SQUAD, UnitType.MOTOR_RIFLE, UnitType.MECH_INFANTRY]:
+		embarked_unit = unit
+		unit.visible = false
+		var cell = GridManager.get_cell(unit.grid_col, unit.grid_row)
+		if cell and cell.occupant_unit == unit:
+			cell.occupant_unit = null
+		return true
+	return false
+
+
+func unmount_passenger() -> UnitBase:
+	"""卸载步兵到载具相邻空位。"""
+	if embarked_unit == null:
+		return null
+	var passenger := embarked_unit
+	embarked_unit = null
+	passenger.visible = true
+	for nb in GridManager.get_neighbors(grid_col, grid_row):
+		var cell = GridManager.get_cell(nb.x, nb.y)
+		if cell and cell.is_passable_for(false) and cell.occupant_unit == null:
+			passenger.set_grid_position(nb.x, nb.y)
+			return passenger
+	passenger.set_grid_position(grid_col, grid_row)
+	return passenger
 
 ## 单位特性文本；先作为数据层字段，后续战斗逻辑按枚举/字段实现具体效果。
 @export var trait_name: String = ""
@@ -244,6 +276,9 @@ func set_grid_position(col: int, row: int) -> void:
 		new_cell.occupant_unit = self
 	var world_pos = GridManager.grid_to_world(col, row)
 	position = world_pos
+	# 修复批B: 搭载的步兵随载具同步移动
+	if embarked_unit != null and embarked_unit.is_alive:
+		embarked_unit.set_grid_position(col, row)
 
 
 func can_move_to(col: int, row: int) -> bool:
@@ -257,7 +292,7 @@ func can_move_to(col: int, row: int) -> bool:
 		UnitType.BRDM2_RECON, UnitType.ZSU23_AA, UnitType.GVOZDIKA_ARTILLERY,
 		UnitType.M901_ITV, UnitType.M109_ARTILLERY, UnitType.M113_APC,
 	])
-	if not cell.is_passable_for(is_armored):
+	if not cell.is_passable_for(is_armored, self):
 		return false
 	# 检查是否有敌方单位占据
 	if cell.occupant_unit and cell.occupant_unit.faction != faction:

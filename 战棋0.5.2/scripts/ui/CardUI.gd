@@ -3,7 +3,7 @@
 # ==============================================================================
 # 作用：渲染手牌界面，显示卡牌名称、消耗、冷却、效果描述。
 #       交互：左键选牌→点击地图目标使用 / 右键点击卡牌弃牌 / Tab开关面板。
-# Godot 4.7.1 鍏煎
+# Godot 4.7.1 兼容
 # ==============================================================================
 class_name CardUI
 extends Control
@@ -13,7 +13,7 @@ const CARD_WIDTH: float = 160.0
 const CARD_HEIGHT: float = 220.0
 const CARD_SPACING: float = 12.0
 
-## === 棰滆壊閰嶇疆 ===
+## === 颜色配置 ===
 const CARD_COLORS: Dictionary = {
 	"attack":   Color(0.85, 0.30, 0.20, 0.9),   # 攻击卡 — 红色
 	"defense":  Color(0.20, 0.50, 0.85, 0.9),   # 防御卡 — 蓝色
@@ -150,7 +150,7 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 		Vector2(rect.position.x + rect.size.x * 0.94, line_y),
 		Color.WHITE.darkened(0.5), 1.0)
 
-	# 鏁堟灉鎻忚堪
+	# 效果描述
 	var desc_rect := Rect2(
 		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.24),
 		Vector2(rect.size.x * 0.88, rect.size.y * 0.52)
@@ -232,7 +232,7 @@ func _draw_empty_hand() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.GRAY)
 
 
-## === 浜や簰 ===
+## === 交互 ===
 func toggle_panel() -> void:
 	is_panel_open = not is_panel_open
 	visible = is_panel_open

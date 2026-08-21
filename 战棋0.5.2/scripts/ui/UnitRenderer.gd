@@ -70,21 +70,6 @@ const ANIMATED_UNIT_SHEETS: Dictionary = {
 ## 贴图缓存（路径 → Texture2D）
 var _icon_cache: Dictionary = {}
 
-const UNIT_SHAPES: Dictionary = {
-	"infantry": "◆",       # 菱形
-	"armor": "■",          # 方块
-	"artillery": "●",      # 圆
-	"ifv": "▲",            # 三角
-	"support": "⬢",        # 六边形
-	"air": "✈",            # 飞机
-	"civilian": "○",       # 空心圆
-	"anti_tank": "⌁",      # 反坦克
-	"air_defense": "✦",    # 防空
-	"recon": "◇",          # 侦察
-	"recon_vehicle": "◈",  # 侦察车
-	"apc": "▰",            # 输送车
-}
-
 ## === 状态 ===
 var selected_unit: UnitBase = null
 var focused_unit: UnitBase = null  # 顶部顺序条点击定位目标，不参与地图操作选择

@@ -48,7 +48,7 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 			result["blocked"] = true
 			print("[MovementSystem] %s 移动中止：目标格不存在 (%d,%d)" % [unit.unit_name, col, row])
 			break
-		if not cell.is_passable_for(is_armored):
+		if not cell.is_passable_for(is_armored, unit):
 			result["blocked"] = true
 			print("[MovementSystem] %s 移动中止：地块不可通行 (%d,%d)" % [unit.unit_name, col, row])
 			break

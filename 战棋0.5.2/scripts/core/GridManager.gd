@@ -87,14 +87,19 @@ class TileCell:
 		var depression_bonus := maxf(0.0, float(-get_effective_height()) * 0.10)
 		return clampf(base_concealment + depression_bonus, 0.0, 0.9)
 
-	func is_passable_for(is_armored: bool) -> bool:
+	func is_passable_for(is_armored: bool, unit: UnitBase = null) -> bool:
 		if is_destroyed:
 			return false
 		if custom_passable >= 0:
 			return custom_passable == 1
-		if terrain == TerrainType.RIVER and is_armored:
+		# 修复批B: 空中/两栖单位可越河越山（AH-64 can_cross_river/mountain 字段消费）
+		var can_cross := false
+		if unit != null:
+			can_cross = (unit.can_cross_river or unit.can_cross_mountain) \
+				and unit.unit_type == UnitBase.UnitType.AH64_HELICOPTER
+		if terrain == TerrainType.RIVER and is_armored and not can_cross:
 			return false
-		if terrain == TerrainType.MOUNTAIN and is_armored:
+		if terrain == TerrainType.MOUNTAIN and is_armored and not can_cross:
 			return false
 		return true
 

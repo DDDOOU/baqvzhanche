@@ -22,6 +22,10 @@ func _run() -> void:
 	_check(victory_manager.wp_command_unit_id >= 0, "应绑定华约指挥单位")
 	_check(victory_manager.nato_command_unit_id >= 0, "应绑定北约指挥单位")
 	_check(GridManager.MAP_WIDTH == 40 and GridManager.MAP_HEIGHT == 45, "第一关地图应为40×45")
+	# 修复批B: 补 VP/出生点数量断言（0.5.9 VP 双轨回归未被测试捕获）
+	_check(not GridManager.vp_cells.is_empty(), "第一关应登记VP格 (实际%d个)" % GridManager.vp_cells.size())
+	_check(not GridManager.spawn_wp.is_empty() and not GridManager.spawn_nato.is_empty(),
+		"双方出生点应可用 (华约%d/北约%d)" % [GridManager.spawn_wp.size(), GridManager.spawn_nato.size()])
 	_check(get_tree().get_nodes_in_group("units").size() == 18, "第一关应生成18支初始单位")
 	_check(GridManager.get_neighbors(0, 0).size() == 2, "地图角落应只有两个四方向邻格")
 	_check(GridManager.manhattan_distance(1, 2, 4, 6) == 7, "四方向曼哈顿距离应正确")
@@ -206,7 +210,7 @@ func _run() -> void:
 	_check(result.game_over and result.winner == UnitBase.Faction.NATO, "华约指挥单位被毁应立即判负")
 
 	if _failures.is_empty():
-		print("[SMOKE TEST] PASS (%d checks)" % 49)
+		print("[SMOKE TEST] PASS (%d checks)" % 52)
 		get_tree().quit(0)
 		return
 

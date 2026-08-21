@@ -289,8 +289,14 @@ func _build_level_03() -> LevelData:
 	level.intel_b = "'洪水'第一阶段已启动，电磁强度达到60%。"
 	level.turn_events = [
 		{"turn": 1, "phase": "turn_start", "id": "flood_preview", "description": "EMI上升预告"},
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：'洪水'第一阶段启动，电子设备开始失灵。",
+			"speaker": "列夫森科上校", "text": "'洪水'第一阶段启动。通信会断断续续，卡牌随时可能乱码——盯紧你的手牌。"},
 		{"turn": 2, "phase": "turn_start", "id": "emi_surge", "description": "EMI跃升至60%"},
 		{"turn": 4, "phase": "turn_start", "id": "nato_blind_fire", "description": "北约开始盲射火力覆盖"},
+		{"turn": 4, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：敌军开始无差别炮击了，小心流弹！",
+			"speaker": "卡琳娜", "text": "敌军开始无差别炮击了！他们看不见我们，但炮弹不长眼——保持分散。"},
 		{"turn": 7, "phase": "turn_start", "id": "reserve_ready", "description": "华约预备队可投入"},
 		{"turn": 8, "phase": "turn_start", "id": "unknown_contacts", "description": "未知接触×2"},
 	]
@@ -448,6 +454,15 @@ func _build_level_07() -> LevelData:
 	level.intel_a = "所有电子设备失效，只能依靠目视与地图。"
 	level.intel_b = "敌方至少仍有10个战斗单位。"
 	level.intel_c = "友军步兵班位置需要玩家自行记忆。"
+	# 修复批B: 补 turn_events — 全频段窒息剧情
+	level.turn_events = [
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：'洪水'第三阶段——全频段窒息。",
+			"speaker": "列夫森科上校", "text": "'洪水'第三阶段，全频段窒息。雷达变成雪花，电台只剩噪音——我们瞎了，他们也瞎了。"},
+		{"turn": 5, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：信号恢复了几秒，我听到敌方坦克集群在向北机动！",
+			"speaker": "卡琳娜", "text": "信号恢复了几秒……敌方坦克集群正在向北机动，他们想包抄我们！"},
+	]
 	return level
 
 
@@ -479,6 +494,15 @@ func _build_level_08() -> LevelData:
 	level.intel_a = "大雪覆盖战场，视野受限。"
 	level.intel_b = "敌方侦察部分恢复，可能提前发现己方位置。"
 	level.intel_c = "雪地车辆辙印会暴露阵地位置。"
+	# 修复批B: 补 turn_events — 雪原剧情
+	level.turn_events = [
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：大雪是白色的走廊，也是我们的裹尸布。",
+			"speaker": "列夫森科上校", "text": "大雪落下，战场变成白色走廊。辙印会出卖我们——控制移动，别留痕迹。"},
+		{"turn": 6, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：雪停了。视野正在恢复，我们藏不住了。",
+			"speaker": "卡琳娜", "text": "雪停了……视野在恢复。我们藏不住了，准备接敌。"},
+	]
 	return level
 
 
@@ -510,6 +534,15 @@ func _build_level_09() -> LevelData:
 	level.intel_a = "敌军可能利用铁路进行快速机动。"
 	level.intel_b = "敌军至少10个战斗单位。"
 	level.intel_c = "指挥中心位置是敌军首要目标。"
+	# 修复批B: 补 turn_events — 红色轨道剧情
+	level.turn_events = [
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：铁路是他们的血管，切断它，他们就死了。",
+			"speaker": "列夫森科上校", "text": "铁路是他们的血管。切断铁路，敌军就无法快速机动——工兵带上炸药。"},
+		{"turn": 6, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：敌指挥部信号锁定，红色轨道——直捣黄龙！",
+			"speaker": "卡琳娜", "text": "锁定敌指挥部信号。红色轨道尽头就是他们的心脏，全线压上！"},
+	]
 	return level
 
 
@@ -548,6 +581,15 @@ func _build_level_10() -> LevelData:
 	level.intel_a = "'洪水'第四阶段已启动，EMI 100%。"
 	level.intel_b = "敌军发起最后的进攻。"
 	level.intel_c = "所有积累的资源可用于本关。"
+	# 修复批B: 补 turn_events — 坐标归零终局剧情
+	level.turn_events = [
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：最后一战。洪水退去之日，就是坐标归零之时。",
+			"speaker": "列夫森科上校", "text": "最后一战。要么我们带着坐标回家，要么所有坐标在这里归零。没有第三种可能。"},
+		{"turn": 5, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：EMI在下降！敌人的电子屏障正在崩溃！",
+			"speaker": "卡琳娜", "text": "EMI在下降……敌人的电子屏障正在崩溃！全线反击，就在今天！"},
+	]
 	return level
 
 

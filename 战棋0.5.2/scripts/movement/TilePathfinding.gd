@@ -32,7 +32,7 @@ static func find_path(from_col: int, from_row: int, to_col: int, to_row: int,
 		return []
 
 	var is_armored = _is_armored(unit)
-	if not end_cell.is_passable_for(is_armored):
+	if not end_cell.is_passable_for(is_armored, unit):
 		return []
 	if end_cell.occupant_unit and end_cell.occupant_unit != unit:
 		return []
@@ -74,7 +74,7 @@ static func find_path(from_col: int, from_row: int, to_col: int, to_row: int,
 				continue
 
 			var cell = GridManager.get_cell(nc, nr)
-			if not cell or not cell.is_passable_for(is_armored):
+			if not cell or not cell.is_passable_for(is_armored, unit):
 				continue
 			# 规划与演绎统一：任何其他单位当前占据的格都不能作为路径节点。
 			# 避免预览允许穿过友军、执行时却在第一步停止。
@@ -137,7 +137,7 @@ static func get_reachable_cells(unit: UnitBase) -> Array:
 			var key = "%d,%d" % [nc, nr]
 
 			var cell = GridManager.get_cell(nc, nr)
-			if not cell or not cell.is_passable_for(is_armored):
+			if not cell or not cell.is_passable_for(is_armored, unit):
 				continue
 
 			# 任何其他单位都视作动态障碍，保证蓝色范围与实际执行一致。

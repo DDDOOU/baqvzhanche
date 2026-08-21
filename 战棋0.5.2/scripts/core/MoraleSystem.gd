@@ -141,8 +141,8 @@ func apply_victory_bonus(unit_id: int) -> void:
 
 
 func apply_rally(unit_id: int) -> void:
-	"""指挥官鼓舞效果"""
-	modify_unit_morale(unit_id, 15, "rally")
+	"""指挥鼓舞 — 修复批B: +15→+10 平衡（原恢复过快: 崩溃1回合回动摇2回合回稳定, 受创追不上）"""
+	modify_unit_morale(unit_id, 10, "rally")
 
 
 ## === 每回合士气自然变化 ===

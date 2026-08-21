@@ -414,11 +414,3 @@ func _plan_hunt_enemies() -> void:
 				nearest.grid_col, nearest.grid_row, unit)
 			if not path.is_empty():
 				TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
-
-
-## === 情报共享 ===
-func share_intel(unit: UnitBase, visible_area: Array[Vector2i]) -> void:
-	"""AI单位侦察到的信息"""
-	for pos in visible_area:
-		if not known_player_positions.has(pos):
-			known_player_positions.append(pos)

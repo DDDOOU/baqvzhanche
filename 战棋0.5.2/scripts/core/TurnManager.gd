@@ -233,19 +233,56 @@ func _execute_unit_action(unit: UnitBase) -> void:
 
 
 func _execute_special_order(unit_id: int, order: Dictionary, is_player: bool) -> void:
-	"""执行特殊指令（工兵布雷/排雷/架桥等）"""
+	"""执行特殊指令（工兵布雷/排雷/架桥/炸桥等）"""
 	var special = order.get("special_type", "")
+	var unit := _get_unit_by_id(unit_id)
+	if unit == null or not unit.is_alive:
+		return
+	var tc := int(order.get("target_col", unit.grid_col))
+	var tr := int(order.get("target_row", unit.grid_row))
 	match special:
 		"lay_mines":
-			pass  # 工兵布雷
+			# 修复批B: 工兵布雷实装（can_lay_mines 校验）
+			if unit.can_lay_mines:
+				MovementSystem.lay_mines(tc, tr)
+				BattleLog.add_log("[工兵] %s 在 (%d,%d) 布设地雷" % [unit.unit_name, tc + 1, tr + 1], Color(0.8, 0.6, 0.2))
 		"clear_mines":
-			pass  # 工兵排雷
+			# 修复批B: 工兵排雷实装 — 清除目标格地雷
+			if unit.can_clear_mines:
+				var mine_pos := Vector2i(tc, tr)
+				if mine_pos in MovementSystem.mine_cells:
+					MovementSystem.mine_cells.erase(mine_pos)
+					BattleLog.add_log("[工兵] %s 排除了 (%d,%d) 的地雷" % [unit.unit_name, tc + 1, tr + 1], Color(0.55, 0.9, 0.55))
 		"repair_bridge":
-			pass  # 修复桥梁
+			# 修复批B: 工兵架桥实装 — 恢复被炸毁的桥梁格
+			if unit.can_repair_bridge:
+				var cell = GridManager.get_cell(tc, tr)
+				if cell and cell.is_destroyed and cell.terrain == GridManager.TerrainType.BRIDGE:
+					cell.is_destroyed = false
+					BattleLog.add_log("[工兵] %s 修复了桥梁 (%d,%d)" % [unit.unit_name, tc + 1, tr + 1], Color(0.55, 0.9, 0.55))
+		"destroy_bridge":
+			# 修复批B: 工兵炸桥实装 — can_destroy_bridge 单位摧毁桥梁格（不可通行）
+			if unit.can_destroy_bridge:
+				var cell = GridManager.get_cell(tc, tr)
+				if cell and not cell.is_destroyed and cell.terrain == GridManager.TerrainType.BRIDGE:
+					cell.is_destroyed = true
+					BattleLog.add_log("[工兵] %s 炸毁了桥梁 (%d,%d) — 敌军无法通过" % [unit.unit_name, tc + 1, tr + 1], Color(1.0, 0.5, 0.2))
 		"recon":
 			pass  # 侦察行动
 		"resupply":
-			pass  # 补给
+			pass  # 补给（回合结算自动补弹已覆盖）
+		"mount":
+			# 修复批B: 步兵搭载（can_transport/transport_capacity 字段消费）
+			var carrier := _get_unit_by_id(int(order.get("target_unit_id", -1)))
+			if carrier:
+				if carrier.mount_passenger(unit):
+					BattleLog.add_log("[搭载] %s 进入 %s" % [unit.unit_name, carrier.unit_name], Color(0.6, 0.9, 0.6))
+				else:
+					BattleLog.add_log("[搭载] 失败：%s 无法搭载 %s" % [carrier.unit_name, unit.unit_name], Color(0.9, 0.5, 0.4))
+		"unmount":
+			var disembarked := unit.unmount_passenger()
+			if disembarked:
+				BattleLog.add_log("[卸载] %s 离开载具" % disembarked.unit_name, Color(0.6, 0.9, 0.6))
 
 
 func _get_unit_by_id(unit_id: int) -> UnitBase:

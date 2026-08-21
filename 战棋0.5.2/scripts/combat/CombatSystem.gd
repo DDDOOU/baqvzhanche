@@ -181,11 +181,13 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 
 	# 修复批B: 近战反击 — 直射/近战命中后, 若双方相邻（贴脸）且目标存活,
 	# 目标对攻击方执行一次 CLOSE_ASSAULT 反击（is_counter 防无限递归）。
+	# 空中单位不参与地面近战反击（AH-64 机制差异化）。
 	if not is_card_attack and not is_counter and attacker and target.is_alive:
 		var adj_dist := GridManager.manhattan_distance(
 			attacker.grid_col, attacker.grid_row,
 			target.grid_col, target.grid_row)
-		if adj_dist == 1 and target.current_ammo > 0:
+		if adj_dist == 1 and target.current_ammo > 0 \
+				and target.unit_type != UnitBase.UnitType.AH64_HELICOPTER:
 			execute_attack(target.unit_id, attacker.grid_col, attacker.grid_row,
 				AttackType.CLOSE_ASSAULT, true, false, true)
 
@@ -251,7 +253,8 @@ func _calculate_hit_chance(attacker: UnitBase, target: UnitBase,
 		AttackType.ANTI_AIR:
 			if target.unit_type == UnitBase.UnitType.AH64_HELICOPTER:
 				if attacker.is_anti_air:
-					chance += 0.15  # 专用防空+15%
+					# 修复批B: 防空命中加成用数据字段 anti_air_bonus（原硬编码 +0.15）
+					chance += attacker.anti_air_bonus
 
 	# === 坐标预判效果 ===
 	# 由 CardSystem 在攻击前施加临时命中 buff
