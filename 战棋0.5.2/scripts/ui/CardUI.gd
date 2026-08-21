@@ -155,17 +155,29 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 	if art_tex != null:
 		# 中上区域绘制卡面, 描述区下移
 		var art_area := Rect2(
-			rect.position + Vector2(rect.size.x * 0.08, rect.size.y * 0.22),
-			Vector2(rect.size.x * 0.84, rect.size.y * 0.46)
+			rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.22),
+			Vector2(rect.size.x * 0.88, rect.size.y * 0.50)
 		)
 		var tex_size := art_tex.get_size()
 		if tex_size.x > 0 and tex_size.y > 0:
-			var scale := minf(art_area.size.x / tex_size.x, art_area.size.y / tex_size.y)
+			# cover 模式: 立绘铺满整个区域不留白（修复: 原 minf 完整显示导致左右留白）
+			var scale := maxf(art_area.size.x / tex_size.x, art_area.size.y / tex_size.y)
 			var draw_size := tex_size * scale
 			var draw_pos := art_area.position + (art_area.size - draw_size) * 0.5
-			draw_texture_rect(art_tex, Rect2(draw_pos, draw_size), false)
+			# Godot4 Control 无 draw_set_clip — 手动裁剪到 art_area 交集
+			var src_rect := Rect2(Vector2.ZERO, tex_size)
+			var dst_rect := Rect2(draw_pos, draw_size)
+			# 求 dst 与 art_area 的交集, 并换算 src 对应区域
+			var overlap := dst_rect.intersection(art_area)
+			if overlap.size.x > 0 and overlap.size.y > 0:
+				var src_offset := (overlap.position - dst_rect.position) / draw_size
+				var src_size := overlap.size / draw_size
+				var src_region := Rect2(
+					src_rect.position + src_rect.size * src_offset,
+					src_rect.size * src_size)
+				draw_texture_rect_region(art_tex, overlap, src_region, Color.WHITE)
 			# 卡面底部加半透明遮罩分隔
-			var shade_top := draw_pos.y + draw_size.y
+			var shade_top := art_area.position.y + art_area.size.y
 			draw_rect(Rect2(rect.position.x, shade_top, rect.size.x, 2.0),
 				Color.WHITE.darkened(0.55), true)
 
