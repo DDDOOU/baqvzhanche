@@ -123,16 +123,44 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 
 	# 内部字号、间距随卡片尺寸缩放
 	var title_font = int(maxf(10.0, rect.size.x * 0.08))
-	var desc_font = int(maxf(8.0, rect.size.x * 0.06))
+	var desc_font = int(maxf(8.0, rect.size.x * 0.055))
 	var cost_font = int(maxf(9.0, rect.size.x * 0.07))
 
 	# 选中高亮
 	if index == selected_card_index:
 		draw_rect(rect.grow(3), Color.YELLOW, false, 2.0)
 
-	# 卡牌背景
+	# 卡牌背景（立绘铺底, 无立绘时用分类色）
 	draw_rect(rect, bg_color, true)
 	draw_rect(rect, Color.WHITE.darkened(0.3), false, 1.0)
+
+	# 卡面贴图（修复批B: AI 美术素材 — 立绘铺满整卡, 文字遮罩叠加）
+	var art_tex := _get_card_art(card)
+	if art_tex != null:
+		var tex_size := art_tex.get_size()
+		if tex_size.x > 0 and tex_size.y > 0:
+			# cover 模式: 立绘铺满整张卡片, 溢出部分居中裁剪
+			var scale := maxf(rect.size.x / tex_size.x, rect.size.y / tex_size.y)
+			var draw_size := tex_size * scale
+			var draw_pos := rect.position + (rect.size - draw_size) * 0.5
+			var src_rect := Rect2(Vector2.ZERO, tex_size)
+			var dst_rect := Rect2(draw_pos, draw_size)
+			var overlap := dst_rect.intersection(rect)
+			if overlap.size.x > 0 and overlap.size.y > 0:
+				var src_offset := (overlap.position - dst_rect.position) / draw_size
+				var src_size := overlap.size / draw_size
+				var src_region := Rect2(
+					src_rect.position + src_rect.size * src_offset,
+					src_rect.size * src_size)
+				draw_texture_rect_region(art_tex, overlap, src_region, Color.WHITE)
+		# 顶部遮罩条（保证名称可读）
+		var top_bar := Rect2(rect.position, Vector2(rect.size.x, rect.size.y * 0.20))
+		draw_rect(top_bar, Color(0.0, 0.0, 0.0, 0.45), true)
+		# 底部遮罩条（保证描述可读）
+		var bot_bar := Rect2(
+			rect.position + Vector2(0, rect.size.y * 0.70),
+			Vector2(rect.size.x, rect.size.y * 0.30))
+		draw_rect(bot_bar, Color(0.0, 0.0, 0.0, 0.55), true)
 
 	# 卡牌名称
 	draw_string(ThemeDB.fallback_font,
@@ -144,65 +172,26 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 		rect.position + Vector2(rect.size.x * 0.78, rect.size.y * 0.10),
 		"费用%d" % card.cost, HORIZONTAL_ALIGNMENT_RIGHT, -1, cost_font, Color.YELLOW)
 
-	# 分隔线
-	var line_y = rect.position.y + rect.size.y * 0.18
-	draw_line(Vector2(rect.position.x + rect.size.x * 0.06, line_y),
-		Vector2(rect.position.x + rect.size.x * 0.94, line_y),
-		Color.WHITE.darkened(0.5), 1.0)
-
-	# 卡面贴图（修复批B: 接入 AI 生成美术素材 — assets/cards/{id}.png）
-	var art_tex := _get_card_art(card)
-	if art_tex != null:
-		# 中上区域绘制卡面, 描述区下移
-		var art_area := Rect2(
-			rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.22),
-			Vector2(rect.size.x * 0.88, rect.size.y * 0.50)
-		)
-		var tex_size := art_tex.get_size()
-		if tex_size.x > 0 and tex_size.y > 0:
-			# cover 模式: 立绘铺满整个区域不留白（修复: 原 minf 完整显示导致左右留白）
-			var scale := maxf(art_area.size.x / tex_size.x, art_area.size.y / tex_size.y)
-			var draw_size := tex_size * scale
-			var draw_pos := art_area.position + (art_area.size - draw_size) * 0.5
-			# Godot4 Control 无 draw_set_clip — 手动裁剪到 art_area 交集
-			var src_rect := Rect2(Vector2.ZERO, tex_size)
-			var dst_rect := Rect2(draw_pos, draw_size)
-			# 求 dst 与 art_area 的交集, 并换算 src 对应区域
-			var overlap := dst_rect.intersection(art_area)
-			if overlap.size.x > 0 and overlap.size.y > 0:
-				var src_offset := (overlap.position - dst_rect.position) / draw_size
-				var src_size := overlap.size / draw_size
-				var src_region := Rect2(
-					src_rect.position + src_rect.size * src_offset,
-					src_rect.size * src_size)
-				draw_texture_rect_region(art_tex, overlap, src_region, Color.WHITE)
-			# 卡面底部加半透明遮罩分隔
-			var shade_top := art_area.position.y + art_area.size.y
-			draw_rect(Rect2(rect.position.x, shade_top, rect.size.x, 2.0),
-				Color.WHITE.darkened(0.55), true)
-
-	# 效果描述
-	var desc_top := rect.position.y + rect.size.y * 0.72 if art_tex != null \
-		else rect.position.y + rect.size.y * 0.24
+	# 效果描述（底部遮罩条内）
 	var desc_rect := Rect2(
-		rect.position + Vector2(rect.size.x * 0.06, desc_top - rect.position.y),
+		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.74),
 		Vector2(rect.size.x * 0.88, rect.size.y * 0.22)
 	)
 	_draw_wrapped_text(desc_rect, str(card.data.get("description", "")),
-		desc_font, Color.WHITE.darkened(0.2))
+		desc_font, Color(0.95, 0.95, 0.95))
 
 	# 冷却标记
 	if card.cooldown > 0:
 		draw_string(ThemeDB.fallback_font,
 			rect.position + Vector2(rect.size.x * 0.06, rect.size.y - rect.size.y * 0.08),
 			"冷却: %d回合" % card.cooldown,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, desc_font, Color.RED)
+			HORIZONTAL_ALIGNMENT_LEFT, -1, desc_font, Color(1.0, 0.5, 0.5))
 
 	# 弃牌提示（右下角，玩家自主弃牌入口）
 	draw_string(ThemeDB.fallback_font,
 		rect.position + Vector2(rect.size.x - rect.size.x * 0.05, rect.size.y - rect.size.y * 0.04),
 		"右键弃牌", HORIZONTAL_ALIGNMENT_RIGHT, -1, desc_font,
-		Color(0.7, 0.7, 0.7))
+		Color(0.8, 0.8, 0.8))
 
 	# 乱码标记
 	if card.is_scrambled:
