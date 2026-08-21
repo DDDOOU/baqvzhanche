@@ -41,6 +41,8 @@ func _run() -> void:
 	GameManager.current_state = GameManager.GameState.PLANNING_PHASE
 
 	# === 验证2: buff 卡即时生效 — 坐标预判 ===
+	# 修复批B: 指挥点系统已接入 — 每个用例前重置指挥点保证可出牌
+	var cp_before := CardSystem.command_points
 	# 找一张坐标预判卡（如果没有就用 grant_card 塞一张）
 	var pred_idx := -1
 	for i in range(CardSystem.hand.size()):
@@ -51,11 +53,13 @@ func _run() -> void:
 		CardSystem.grant_card("coordinate_prediction")
 		pred_idx = CardSystem.hand.size() - 1
 	var hand_before := CardSystem.hand.size()
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	var ok := CardSystem.use_card(pred_idx, 5, 5)
 	_check(ok, "坐标预判出牌成功")
 	_check(CardSystem.hand.size() == hand_before - 1, "出牌后手牌-1")
 	_check(is_equal_approx(CardSystem.get_prediction_buff(5, 5), 0.30), "坐标预判 buff 立即写入 (5,5)=+30%")
 	_check(CardSystem.pending_card_effects.is_empty(), "坐标预判不再进入延迟结算队列")
+	_check(CardSystem.command_points == cp_before - 1, "坐标预判消耗1指挥点 (%d → %d)" % [cp_before, CardSystem.command_points])
 
 	# === 验证3: 电磁反制立即生效且方向为降 EMI ===
 	var emi_idx := -1
@@ -67,6 +71,7 @@ func _run() -> void:
 		CardSystem.grant_card("emi_countermeasure")
 		emi_idx = CardSystem.hand.size() - 1
 	var emi_before := EMISystem.current_intensity
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(emi_idx, 5, 5)
 	_check(EMISystem.temp_modifier < 0.0, "电磁反制: temp_modifier 为负 (%+.2f)" % EMISystem.temp_modifier)
 	# 第1关 EMI 基础 0.00, 下降被 clamp 到 0 属预期; temp_modifier 负值即证明立即生效
@@ -90,6 +95,7 @@ func _run() -> void:
 	if fr_idx < 0:
 		CardSystem.grant_card("false_report")
 		fr_idx = CardSystem.hand.size() - 1
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(fr_idx, 12, 12)
 	_check(CardSystem.has_false_report(12, 12), "战报谎言: 假接触标记已登记 (12,12)")
 
@@ -103,6 +109,7 @@ func _run() -> void:
 		CardSystem.grant_card("sapper_mines")
 		mine_idx = CardSystem.hand.size() - 1
 	var mines_before := MovementSystem.mine_cells.size()
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(mine_idx, 8, 8)
 	var mines_after := MovementSystem.mine_cells.size()
 	_check(mines_after == mines_before + 2, "工兵布雷: 布设2格 (%d → %d)" % [mines_before, mines_after])
@@ -116,6 +123,7 @@ func _run() -> void:
 	if smoke_idx < 0:
 		CardSystem.grant_card("smoke_screen")
 		smoke_idx = CardSystem.hand.size() - 1
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(smoke_idx, 15, 15)
 	var smoke_key = "15,15"
 	_check(CombatSystem.smoke_cells.has(smoke_key) and CombatSystem.smoke_cells[smoke_key] == 2,
@@ -131,6 +139,7 @@ func _run() -> void:
 	if fort_idx < 0:
 		CardSystem.grant_card("fortify_position")
 		fort_idx = CardSystem.hand.size() - 1
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(fort_idx, 4, 5)
 	_check(is_equal_approx(CardSystem.get_fortify_buff(4, 5), 0.50), "阵地加固: 防御buff 即时写入 (4,5)=+50%")
 
@@ -149,6 +158,7 @@ func _run() -> void:
 	if sil_idx < 0:
 		CardSystem.grant_card("radio_silence")
 		sil_idx = CardSystem.hand.size() - 1
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
 	CardSystem.use_card(sil_idx, 5, 5)
 	_check(CardSystem.radio_silence_active, "无线电静默激活")
 	var turn_manager := get_node("/root/TurnManager")

@@ -33,8 +33,13 @@ func _ready() -> void:
 
 ## === 攻击执行 ===
 func execute_attack(attacker_id: int, target_col: int, target_row: int,
-		attack_type: AttackType = AttackType.DIRECT_FIRE) -> Dictionary:
-	"""执行一次攻击，返回攻击结果。attacker_id=-1 表示卡牌源攻击。"""
+		attack_type: AttackType = AttackType.DIRECT_FIRE,
+		skip_area: bool = false, skip_ammo: bool = false,
+		is_counter: bool = false) -> Dictionary:
+	"""执行一次攻击，返回攻击结果。attacker_id=-1 表示卡牌源攻击。
+	skip_area=true 时跳过面杀伤分发（面杀伤子攻击内部调用, 防递归）。
+	skip_ammo=true 时跳过弹药扣减（面杀伤子攻击, 由外层统一扣一发）。
+	is_counter=true 时本次为反击（不触发对方反击, 防无限递归）。"""
 	var result = {"hit": false, "damage": 0.0, "destroyed": false, "friendly_fire": false}
 
 	var is_card_attack = (attacker_id == -1)
@@ -54,6 +59,11 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 		if not attacker or not attacker.is_alive:
 			return result
 		attack_started.emit(attacker_id)
+		# 修复批B: 面杀伤接入 — 炮兵单位（BM21/GVOZDIKA/M109, area_effect_radius>0）
+		# 对目标格执行范围轰炸, 而非单目标直射。范围形状与卡牌统一为方形。
+		if not skip_area and attacker.area_effect_radius > 0 \
+				and attack_type in [AttackType.DIRECT_FIRE, AttackType.AREA_BOMBARDMENT]:
+			return _execute_area_attack_with_ammo(attacker, target_col, target_row)
 
 	# 查找目标
 	var target = _get_unit_at(target_col, target_row)
@@ -61,7 +71,7 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 		# 修复: 空目标 = 开火但落空——照常扣弹药并发信号（战报记录"落空"），不再静默消失
 		result["miss"] = true
 		result["hit_chance"] = 0.5
-		if not is_card_attack and attacker:
+		if not is_card_attack and attacker and not skip_ammo:
 			attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
 		attack_executed.emit(attacker_id, target_col, target_row, result)
 		return result
@@ -71,7 +81,8 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 			# 修复: 开火必消耗弹药、必有战报（目标脱离射程也算一次开火）
 			result["invalid_target"] = true
 			result["miss"] = true
-			attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
+			if not skip_ammo:
+				attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
 			attack_executed.emit(attacker_id, target_col, target_row, result)
 			return result
 
@@ -119,7 +130,7 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	result["hit_chance"] = hit_chance
 	result["roll"] = roll
 	# 扣弹药代表已经开火；未命中也必须消耗一发。
-	if not is_card_attack:
+	if not is_card_attack and not skip_ammo:
 		attacker.current_ammo = maxi(0, attacker.current_ammo - 1)  # 修复批B: 弹药不为负
 
 	if roll > hit_chance:
@@ -146,6 +157,10 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 		var fortify = CardSystem.get_fortify_buff(target.grid_col, target.grid_row)
 		if fortify > 0:
 			base_damage *= (1.0 - fortify)
+		# 修复批B: 卡牌伤害也走装甲减伤（原 take_damage 的 armor/200 已移除,
+		# 卡牌路径需自行应用 — 用 DamageCalculator 同款公式, 无攻击方穿透）
+		base_damage = DamageCalculator.calculate_base_damage(
+			base_damage, target.armor_value, 0.0)
 	else:
 		base_damage = _calculate_damage(attacker, target, attack_type)
 
@@ -163,6 +178,16 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 			MoraleSystem.apply_friendly_fire_penalty(attacker_id, 1.0)
 		if is_civilian:
 			MoraleSystem.apply_civilian_casualty_penalty(attacker_id)
+
+	# 修复批B: 近战反击 — 直射/近战命中后, 若双方相邻（贴脸）且目标存活,
+	# 目标对攻击方执行一次 CLOSE_ASSAULT 反击（is_counter 防无限递归）。
+	if not is_card_attack and not is_counter and attacker and target.is_alive:
+		var adj_dist := GridManager.manhattan_distance(
+			attacker.grid_col, attacker.grid_row,
+			target.grid_col, target.grid_row)
+		if adj_dist == 1 and target.current_ammo > 0:
+			execute_attack(target.unit_id, attacker.grid_col, attacker.grid_row,
+				AttackType.CLOSE_ASSAULT, true, false, true)
 
 	var was_destroyed = false
 	if not target.is_alive:
@@ -246,29 +271,20 @@ func _calculate_hit_chance(attacker: UnitBase, target: UnitBase,
 ## === 伤害计算 ===
 func _calculate_damage(attacker: UnitBase, target: UnitBase,
 		attack_type: AttackType) -> float:
-	"""伤害公式"""
-	var base_damage = attacker.get_effective_damage()
-
-	# 高度差修正：从高处攻击每级+10%，从低处攻击每级-10%。
+	"""伤害公式 — 统一走 DamageCalculator（修复批B: 原三套口径并存）"""
 	var height_diff = 0
 	var attacker_cell = GridManager.get_cell(attacker.grid_col, attacker.grid_row)
 	var target_cell = GridManager.get_cell(target.grid_col, target.grid_row)
 	if attacker_cell and target_cell:
 		height_diff = attacker_cell.get_effective_height() - target_cell.get_effective_height()
-		base_damage *= maxf(0.60, 1.0 + height_diff * 0.10)
 
-	# 侧后装甲：额外伤害
-	if target.is_side_armor(attacker.grid_col, attacker.grid_row):
-		base_damage *= 1.35  # +35%侧面攻击
+	# 攻击面（FRONT/SIDE/REAR）— 侧/后加成与装甲折算在 DamageCalculator 内统一处理
+	var armor_aspect := target.get_armor_aspect(attacker.grid_col, attacker.grid_row)
 
-	# 穿甲判定
-	var armor = target.armor_value
-	if target.is_side_armor(attacker.grid_col, attacker.grid_row):
-		armor *= 0.55  # 侧面装甲薄弱
-	if attacker.penetration > armor:
-		base_damage *= 1.20  # 击穿加成
+	var calc := DamageCalculator.calculate_full_damage(attacker, target, attack_type, height_diff, armor_aspect)
+	var base_damage: float = calc["final"]
 
-	# 面杀伤扩散
+	# 面杀伤扩散（调用方叠加, DamageCalculator 不引用 CombatSystem 防循环依赖）
 	if attack_type == AttackType.AREA_BOMBARDMENT:
 		base_damage *= 0.75  # 面杀伤单目标伤害降低
 
@@ -337,6 +353,32 @@ func tick_smoke() -> void:
 
 
 ## === 面杀伤 ===
+func _execute_area_attack_with_ammo(attacker: UnitBase, center_col: int, center_row: int) -> Dictionary:
+	"""炮兵面杀伤: 对 area_effect_radius 方形范围内所有敌方单位各执行一次攻击,
+	消耗一发弹药, 返回首个命中结果（战报/信号在子攻击中逐条发出）。
+	修复批B: 接入 area_effect_radius 字段（原炮兵按直射单目标打）。"""
+	if attacker.current_ammo <= 0:
+		return {"hit": false, "damage": 0.0, "destroyed": false, "out_of_ammo": true}
+
+	var cells := GridManager.get_cells_in_square(center_col, center_row, attacker.area_effect_radius)
+	var first_result := {"hit": false, "damage": 0.0, "destroyed": false, "area": true}
+	var hit_any := false
+	for c in cells:
+		var target = _get_unit_at(c.x, c.y)
+		if target == null or target.unit_id == attacker.unit_id:
+			continue
+		if target.faction == attacker.faction:
+			continue  # 面杀伤不打己方（与卡牌路径一致）
+		var sub := execute_attack(attacker.unit_id, c.x, c.y, AttackType.AREA_BOMBARDMENT, true, true)
+		if not hit_any:
+			first_result = sub
+			hit_any = true
+	attacker.current_ammo = maxi(0, attacker.current_ammo - 1)
+	first_result["area"] = true
+	return first_result
+
+
+## === 面杀伤（卡牌源） ===
 func execute_area_attack(attacker_id: int, center_col: int, center_row: int,
 		radius: int) -> Array[Dictionary]:
 	"""对区域进行面杀伤（BM-21、呼叫炮击）— 修复批B: 统一方形范围"""

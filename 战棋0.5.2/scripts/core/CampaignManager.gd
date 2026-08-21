@@ -14,6 +14,7 @@ var campaign_friendly_fire: int = 0   # 累计误伤百分比 (0-100)
 var campaign_loans: int = 0           # 累计指挥贷款 (0-50)
 var campaign_kills: int = 0           # 累计击杀数
 var _level_kills: int = 0             # 本关击杀数（unit_destroyed 实时累计, 修复原扫描尸体恒0）
+var _level_heli_kills: int = 0        # 本关直升机击杀数（修复批B: 结算写入 result）
 var current_act: int = 1              # 当前幕 (1-3)
 var levels_completed: Array[int] = [] # 已完成的关卡ID
 var level_results: Dictionary = {}    # level_id → result_data
@@ -192,14 +193,31 @@ func get_morale_tier_name() -> String:
 
 
 func _on_unit_destroyed(unit_id: int, _killer_id: int) -> void:
+	var killed_unit: UnitBase = null
 	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
-		if unit.unit_id == unit_id and unit.faction == UnitBase.Faction.NATO:
-			_level_kills += 1
-			return
+		if unit.unit_id == unit_id:
+			killed_unit = unit
+			break
+	if killed_unit == null:
+		return
+	var faction: int = killed_unit.faction
+	if faction == UnitBase.Faction.NATO:
+		_level_kills += 1
+	# 直升机击杀（修复批B: 关卡级累计, 结算时写入 result, 重打可回滚）
+	if killed_unit.unit_type == UnitBase.UnitType.AH64_HELICOPTER:
+		_level_heli_kills += 1
+	# 指挥单位阵亡 → 同阵营全体士气惩罚（修复批B: 原无此机制）
+	if killed_unit.is_command:
+		var penalty := -10 if faction == UnitBase.Faction.NATO else -15
+		if faction == UnitBase.Faction.NATO:
+			campaign_morale = clampi(campaign_morale + penalty, 0, 100)
+			morale_changed.emit(campaign_morale, penalty)
+			print("[CampaignManager] 北约指挥单位被摧毁 — 战役士气 %d" % campaign_morale)
 
 
 func reset_level_kills() -> void:
 	_level_kills = 0
+	_level_heli_kills = 0
 
 
 func check_level_completion(level_id: int) -> Dictionary:
@@ -209,6 +227,7 @@ func check_level_completion(level_id: int) -> Dictionary:
 		# 关卡结束，补充战役数据
 		turn_result["level_id"] = level_id
 		turn_result["kills"] = _level_kills
+		turn_result["heli_kills"] = _level_heli_kills  # 修复批B: 直升机击杀写入结算
 		return turn_result
 	return {"completed": false, "level_id": level_id}
 

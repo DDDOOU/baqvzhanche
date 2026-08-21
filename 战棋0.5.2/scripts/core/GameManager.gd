@@ -72,6 +72,10 @@ func _ensure_default_input_actions() -> void:
 	_ensure_key_action("camera_down", KEY_S)
 	_ensure_key_action("pause_game", KEY_P)
 	_ensure_key_action("toggle_fullscreen", KEY_F11)
+	# 修复批B: 统一输入映射双轨 — 代码消费配置动作, 缺失时运行时补建
+	_ensure_key_action("plan_confirm", KEY_ENTER)
+	_ensure_key_action("plan_cancel", KEY_ESCAPE)
+	_ensure_key_action("toggle_card_panel", KEY_TAB)
 
 
 func _ensure_key_action(action: StringName, keycode: Key) -> void:

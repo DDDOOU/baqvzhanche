@@ -73,7 +73,7 @@ plan_cancel={
 "deadzone": 0.5,
 "events": [{
 "id": "key_escape"
-}, null]
+}]
 }
 toggle_card_panel={
 "deadzone": 0.5,

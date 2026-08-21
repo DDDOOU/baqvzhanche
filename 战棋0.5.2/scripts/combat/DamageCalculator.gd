@@ -23,13 +23,16 @@ static func calculate_base_damage(attack_power: float, armor: float,
 	基础伤害公式：
 	damage = attack_power * (1 - armor_reduction) * penetration_factor
 	"""
+	# 修复批B: armor=0（平民/无装甲单位）时分母除零 → INF 伤害
+	var denom := maxf(armor, 1.0)
+
 	# 装甲减伤：装甲值 / (装甲值 + 50)
 	var armor_reduction = armor / (armor + 50.0)
 
 	# 穿透系数
 	var pen_factor = 1.0
 	if penetration > armor:
-		pen_factor = 1.0 + (penetration - armor) / armor * 0.3  # 击穿加成
+		pen_factor = 1.0 + (penetration - armor) / denom * 0.3  # 击穿加成
 
 	var damage = attack_power * (1.0 - armor_reduction) * pen_factor
 	return maxf(1.0, damage)
@@ -123,18 +126,23 @@ static func get_counter_bonus(attacker_type: UnitBase.UnitType,
 ## === 综合伤害计算 ===
 static func calculate_full_damage(attacker: UnitBase, target: UnitBase,
 		attack_type: int, height_diff: int,
-		is_side: bool, is_rear: bool) -> Dictionary:
+		armor_aspect: int = UnitBase.ArmorAspect.FRONT) -> Dictionary:
 	"""
-	完整的伤害计算流程，返回详细结果
+	完整的伤害计算流程，返回详细结果。
+	修复批B: is_side/is_rear bool 改为 ArmorAspect 枚举（FRONT/SIDE/REAR）,
+	后方+50%加成与装甲 0.55/0.35 折算真正生效。
+	注意: 不引用 CombatSystem（避免循环依赖）— 面杀伤/防空等修正由调用方叠加。
 	"""
 	var result = {"base": 0.0, "after_armor": 0.0, "final": 0.0,
 		"crit": false, "breakdown": []}
 
 	# 1. 基础伤害
-	result["base"] = attacker.attack_power
+	result["base"] = attacker.get_effective_damage()
 
-	# 2. 装甲减伤
+	# 2. 装甲减伤（按攻击面折算: 正面全额 / 侧面0.55 / 后方0.35）
 	var armor = target.armor_value
+	var is_side: bool = armor_aspect == UnitBase.ArmorAspect.SIDE
+	var is_rear: bool = armor_aspect == UnitBase.ArmorAspect.REAR
 	if is_side:
 		armor *= 0.55  # 侧面装甲
 	elif is_rear:
@@ -150,20 +158,15 @@ static func calculate_full_damage(attacker: UnitBase, target: UnitBase,
 	if height_diff != 0:
 		result["breakdown"].append("高度差(%+d): ×%.2f" % [height_diff, height_mult])
 
-	# 4. 侧面修正
-	var flank_mult = flank_damage_modifier(is_side, is_rear)
-	result["after_armor"] *= flank_mult
-	if is_side or is_rear:
-		result["breakdown"].append("侧/后装甲: ×%.2f" % flank_mult)
+	# 4. 侧/后修正（只对装甲单位生效）
+	var flank_mult := 1.0
+	if target.unit_type in [UnitBase.UnitType.T72B_TANK, UnitBase.UnitType.M1A1_TANK]:
+		flank_mult = flank_damage_modifier(is_side, is_rear)
+		result["after_armor"] *= flank_mult
+		if is_side or is_rear:
+			result["breakdown"].append("侧/后装甲: ×%.2f" % flank_mult)
 
-	# 5. 暴击
-	result["crit"] = check_critical_hit(attacker.accuracy, height_diff > 0)
-	if result["crit"]:
-		var crit_mult = critical_damage_multiplier()
-		result["after_armor"] *= crit_mult
-		result["breakdown"].append("暴击!: ×%.2f" % crit_mult)
-
-	# 6. 克制
+	# 5. 克制
 	var counter = get_counter_bonus(attacker.unit_type, target.unit_type)
 	if counter != 1.0:
 		result["after_armor"] *= counter

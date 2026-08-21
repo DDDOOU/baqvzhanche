@@ -15,6 +15,13 @@ enum Faction {
 	NEUTRAL       # 中立（平民车队/未知接触）
 }
 
+## === 装甲面枚举（攻击方向） ===
+enum ArmorAspect {
+	FRONT,  # 正面 — 全额装甲
+	SIDE,   # 侧面 — 装甲×0.55, 伤害×1.35
+	REAR    # 后方 — 装甲×0.35, 伤害×1.50
+}
+
 ## === 单位类型 ===
 enum UnitType {
 	INFANTRY_SQUAD,       # 步兵班
@@ -317,13 +324,27 @@ func get_effective_damage() -> float:
 	return dmg
 
 
+## === 补给 ===
+func resupply(ratio: float = 1.0) -> void:
+	"""补充弹药。ratio=1.0 全额补给（指挥中心范围）, 0.5 半额（回合自动补给）。
+	修复批B: 原无补给机制, 单位弹药打完即废。"""
+	if not is_alive or max_ammo <= 0:
+		return
+	if ratio >= 1.0:
+		current_ammo = max_ammo
+	else:
+		current_ammo = mini(max_ammo, current_ammo + maxi(1, int(max_ammo * ratio)))
+
+
 ## === 伤害处理 ===
 func take_damage(amount: float, source_unit_id: int = -1) -> void:
-	"""受到伤害"""
-	var actual_damage = amount * (1.0 - armor_value / 200.0)  # 装甲减伤
-	current_health = maxf(0.0, current_health - actual_damage)
+	"""受到伤害 — 修复批B: 移除 armor/200 二次减伤（装甲已在 DamageCalculator
+	统一处理, 原实现造成双重减伤）。补 is_alive 防御: 死亡后不再重复处理。"""
+	if not is_alive:
+		return
+	current_health = maxf(0.0, current_health - amount)
 
-	print("[Unit %d] 受到 %.1f 伤害 (原始: %.1f), 剩余生命: %.1f" % [unit_id, actual_damage, amount, current_health])
+	print("[Unit %d] 受到 %.1f 伤害, 剩余生命: %.1f" % [unit_id, amount, current_health])
 
 	if current_health <= 0:
 		_on_death(source_unit_id)
@@ -341,20 +362,29 @@ func _on_death(_killer_id: int) -> void:
 
 
 func is_side_armor(col: int, row: int) -> bool:
-	"""判断攻击是否来自侧后（用于装甲薄弱判定）"""
+	"""判断攻击是否来自侧后（用于装甲薄弱判定, 兼容旧调用）"""
+	return get_armor_aspect(col, row) != ArmorAspect.FRONT
+
+
+func get_armor_aspect(col: int, row: int) -> int:
+	"""攻击方向装甲面: FRONT/SIDE/REAR（修复批B: 原 bool 无法区分侧/后,
+	后方+50%加成与装甲 0.55/0.35 折算从未生效）"""
 	if unit_type in [UnitType.T72B_TANK, UnitType.M1A1_TANK]:
 		# 2×2坦克单位：判断攻击方向
 		var dx = col - grid_col
 		var dy = row - grid_row
 		if dx == 0 and dy == 0:
-			return false
+			return ArmorAspect.FRONT
 		var angle = atan2(dy, dx)
-		# 与正面朝向的夹角（0~PI），修复: 原公式 abs(fposmod(angle-facing,TAU)-PI)
-		# 度量的是"与正后方的夹角"，正面攻击反而被判为侧面。
+		# 与正面朝向的夹角（0~PI）
 		var off := fposmod(angle - facing_angle, TAU)
 		off = minf(off, TAU - off)
-		return off > PI / 3.0  # 超过60度偏移视为侧后
-	return false
+		if off <= PI / 6.0:
+			return ArmorAspect.FRONT    # ±30° 正面
+		if off <= PI / 2.0 + PI / 6.0:
+			return ArmorAspect.SIDE     # 30°~120° 侧面
+		return ArmorAspect.REAR         # >120° 后方
+	return ArmorAspect.FRONT
 
 
 ## === 序列化 ===

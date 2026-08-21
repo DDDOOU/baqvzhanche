@@ -153,7 +153,13 @@ func _build_level_01() -> LevelData:
 	# 回合事件
 	level.turn_events = [
 		{"turn": 1, "phase": "turn_start", "id": "fog_warning", "description": "晨雾生效，视野3格"},
+		{"turn": 1, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "列夫森科上校：晨雾掩护我们，但也会掩护敌人。守住公路。",
+			"speaker": "列夫森科上校", "text": "晨雾掩护我们，但也会掩护敌人。守住公路，一步不退。"},
 		{"turn": 3, "phase": "turn_start", "id": "ah64_arrives", "description": "北约AH-64进场"},
+		{"turn": 3, "phase": "turn_start", "id": "radio_dialogue",
+			"description": "卡琳娜：旋翼声——北约武装直升机进场了！",
+			"speaker": "卡琳娜", "text": "旋翼声！北约武装直升机进场了，防空组注意。"},
 		{"turn": 4, "phase": "turn_start", "id": "fog_lifts", "description": "晨雾消散，视野恢复6格"},
 		{"turn": 5, "phase": "turn_start", "id": "emi_rise", "description": "EMI强度+5%", "emi_delta": 0.05},
 		{"turn": 6, "phase": "turn_start", "id": "unknown_contact_1", "description": "未知接触出现(11,J)"},
@@ -203,6 +209,10 @@ func _build_level_02() -> LevelData:
 	level.nato_command_center = Vector2i(17, 6)
 	level.wp_starting_cards = CardDatabase.get_level_cards(1)
 	level.nato_ai_behavior = NATOAI.AIBehavior.STEADY_PUSH
+	# 修复批B: 行为演进 — 第5回合后转入火力压制（恢复原硬编码意图, 数据驱动）
+	level.behavior_switches = [
+		{"turn": 6, "behavior": NATOAI.AIBehavior.FIRE_SUPPRESSION},
+	]
 
 	# 华约单位
 	level.wp_units = [
@@ -252,6 +262,10 @@ func _build_level_03() -> LevelData:
 	level.nato_command_center = Vector2i(16, 6)
 	level.wp_starting_cards = CardDatabase.get_level_cards(2)
 	level.nato_ai_behavior = NATOAI.AIBehavior.FIRE_SUPPRESSION
+	# 修复批B: 行为演进 — 第3回合后转稳推（原硬编码意图: 前3回合压制后稳推）
+	level.behavior_switches = [
+		{"turn": 4, "behavior": NATOAI.AIBehavior.STEADY_PUSH},
+	]
 
 	level.wp_units = [
 		{"type": UnitBase.UnitType.COMMAND_ELEMENT, "col": 2, "row": 6, "morale": 65},
@@ -511,6 +525,10 @@ func _build_level_10() -> LevelData:
 	level.nato_command_center = Vector2i(16, 6)
 	level.wp_starting_cards = CardDatabase.get_level_cards(9)
 	level.nato_ai_behavior = NATOAI.AIBehavior.SPEED_RUSH
+	# 修复批B: 行为演进 — 第6回合后转集中突击（原硬编码意图: 后期集火收尾）
+	level.behavior_switches = [
+		{"turn": 6, "behavior": NATOAI.AIBehavior.CONCENTRATED},
+	]
 
 	level.wp_units = [
 		{"type": UnitBase.UnitType.COMMAND_ELEMENT, "col": 3, "row": 6, "morale": 65},

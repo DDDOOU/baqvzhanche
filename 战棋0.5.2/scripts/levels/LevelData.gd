@@ -43,6 +43,9 @@ extends Resource
 @export var nato_units: Array = []       # 初始单位配置
 @export var nato_ai_behavior: int = 0                 # AI初始倾向
 @export var nato_reserve_units: Array = [] # 预备队
+## 行为演进: [{turn: int, behavior: int}] — 到指定回合切换 AI 行为（修复批B:
+## 原硬编码随回合演进逻辑被删后, 用数据声明恢复"后期AI更激进"的设计意图）
+@export var behavior_switches: Array = []
 
 ## === 环境设置 ===
 @export var emi_base_level: float = 0.0              # EMI基础水平

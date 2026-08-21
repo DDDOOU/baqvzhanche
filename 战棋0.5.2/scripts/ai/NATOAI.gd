@@ -82,6 +82,11 @@ func _update_behavior(_turn: int, level_id: int) -> void:
 	var level_data = LevelDatabase.get_level(level_id)
 	if level_data:
 		current_behavior = level_data.nato_ai_behavior
+		# 修复批B: 行为演进 — 到指定回合切换（恢复原硬编码的"后期更激进"设计,
+		# 改为数据驱动: 取满足 turn >= 阈值 的最后一条切换）
+		for sw in level_data.behavior_switches:
+			if int(sw.get("turn", 0)) <= _turn:
+				current_behavior = int(sw.get("behavior", current_behavior))
 	else:
 		current_behavior = AIBehavior.STEADY_PUSH
 

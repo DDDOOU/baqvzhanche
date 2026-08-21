@@ -27,22 +27,22 @@
 
 ## P2 机制缺失（批 C）
 
-- [ ] [P2] DamageCalculator.gd 全文件 - **伤害公式三套并存**：DamageCalculator（暴击/克制/盲射/后方加成）零调用；CombatSystem 内联公式与 take_damage armor/200 另两套口径。（建议：统一走 calculate_full_damage 或删死代码）
-- [ ] [P2] DamageCalculator.gd:31-32 - **armor=0 除零**（接入前必修）：pen_factor 分母 armor，平民 armor=0 → INF 伤害。（建议：denom=maxf(armor,1.0)）
-- [ ] [P2] UnitBase.gd:257-267 + CombatSystem.gd:256-262 - **侧/后判定丢失**：is_side_armor 返回 bool 无方向，后方 +50% 加成不存在，装甲 0.55/0.35 折算未生效。（建议：返回 FRONT/SIDE/REAR 枚举）
-- [ ] [P2] UnitDatabase.gd:44-51 - **面杀伤未实现**：BM21(3)/GVOZDIKA(2)/M109(2) area_effect 无消费者，炮兵按直射单目标。（建议：攻击接入 execute_area_attack）
-- [ ] [P2] CombatSystem.gd - **近战/反击（CLOSE_ASSAULT）未实现**：枚举存在无逻辑，攻击者不会受反击/死亡。（建议：贴脸判定 + 反击回调）
-- [ ] [P2] CampaignManager.gd - **指挥单位阵亡无士气惩罚**：unit_destroyed 监听中 is_command → 同阵营 -10~15 未实现。（建议：补监听）
-- [ ] [P2] CampaignManager.gd:93 - **直升机击杀统计恒 0**：result 无 heli_kills 字段，helicopter_shot_down 信号只进战报。（建议：结算统计写入 result）
-- [ ] [P2] 弹药系统 - **无补给机制**：打完即废（T72 40 发），resupply 指令空实现。（建议：实现补给车/回合自动补充，或改每回合开火次数）
-- [ ] [P2] TurnManager.gd:163-164 - **WEGO 速度排序失效**：move_speed 恒 1.0（数据库无字段）。（建议：补 speed 字段）
-- [ ] [P2] MovementSystem.gd:75-83 - **触雷幸存者重复处理同格**：set_grid_position/unit_step/steps_completed 二次执行。（建议：触雷分支统一 break）
+- [x] [P2] DamageCalculator.gd 全文件 - **伤害公式三套并存**：DamageCalculator（暴击/克制/盲射/后方加成）零调用；CombatSystem 内联公式与 take_damage armor/200 另两套口径。（建议：统一走 calculate_full_damage 或删死代码）→ 已修（0.6.0：DamageCalculator 成为唯一权威，CombatSystem 调用，take_damage 二次减伤移除）
+- [x] [P2] DamageCalculator.gd:31-32 - **armor=0 除零**（接入前必修）：pen_factor 分母 armor，平民 armor=0 → INF 伤害。（建议：denom=maxf(armor,1.0)）→ 已修（0.6.0：denom=maxf(armor,1.0)）
+- [x] [P2] UnitBase.gd:257-267 + CombatSystem.gd:256-262 - **侧/后判定丢失**：is_side_armor 返回 bool 无方向，后方 +50% 加成不存在，装甲 0.55/0.35 折算未生效。（建议：返回 FRONT/SIDE/REAR 枚举）→ 已修（0.6.0：get_armor_aspect 枚举，侧×1.35/后×1.50 生效）
+- [x] [P2] UnitDatabase.gd:44-51 - **面杀伤未实现**：BM21(3)/GVOZDIKA(2)/M109(2) area_effect 无消费者，炮兵按直射单目标。（建议：攻击接入 execute_area_attack）→ 已修（0.6.0：area_effect_radius>0 自动转方形齐射）
+- [x] [P2] CombatSystem.gd - **近战/反击（CLOSE_ASSAULT）未实现**：枚举存在无逻辑，攻击者不会受反击/死亡。（建议：贴脸判定 + 反击回调）→ 已修（0.6.0：贴脸命中后目标自动反击，is_counter 防递归）
+- [x] [P2] CampaignManager.gd - **指挥单位阵亡无士气惩罚**：unit_destroyed 监听中 is_command → 同阵营 -10~15 未实现。（建议：补监听）→ 已修（0.6.0：指挥单位阵亡战役士气 -10）
+- [x] [P2] CampaignManager.gd:93 - **直升机击杀统计恒 0**：result 无 heli_kills 字段，helicopter_shot_down 信号只进战报。（建议：结算统计写入 result）→ 已修（0.6.0：关卡级 _level_heli_kills 写入 result）
+- [x] [P2] 弹药系统 - **无补给机制**：打完即废（T72 40 发），resupply 指令空实现。（建议：实现补给车/回合自动补充，或改每回合开火次数）→ 已修（0.6.0：回合结算自动补弹，指挥中心半径内全额其余50%）
+- [x] [P2] TurnManager.gd:163-164 - **WEGO 速度排序失效**：move_speed 恒 1.0（数据库无字段）。（建议：补 speed 字段）→ 已修（0.6.0：25 单位补全 move_speed）
+- [x] [P2] MovementSystem.gd:75-83 - **触雷幸存者重复处理同格**：set_grid_position/unit_step/steps_completed 二次执行。（建议：触雷分支统一 break）→ 已修（0.6.0：统一 break）
 - [ ] [P2] 空中单位 - **AH-64 直升机无机制差异化**：无高度/弹药挂载/无法被地面近战等特殊规则（除防空加成）。
 
 ## P3 代码质量 / 平衡 / 数据
 
-- [ ] [P3] 死代码群清理（接入或删除）：DamageCalculator、AIBehaviorType、UnitData（资源类）、GameManager._on_level_end、TurnManager._execute_orders/_execute_single_order、CardSystem.execute_card 死路径、UnitRenderer.UNIT_SHAPES、MovementSystem.validate_path、EMISystem.try_scramble_card/apply_countermeasure/get_visible_cells、NATOAI.share_intel
-- [ ] [P3] project.godot - **输入映射双轨**：6 个动作（camera/pause/fullscreen）运行时补建未入配置；配置的 5 个动作（ui_click_left 等）零消费；plan_cancel events 含 null 元素。
+- [ ] [P3] 死代码群清理（接入或删除）：AIBehaviorType、UnitData（资源类）、GameManager._on_level_end、TurnManager._execute_orders/_execute_single_order、CardSystem.execute_card 死路径、UnitRenderer.UNIT_SHAPES、EMISystem.try_scramble_card/get_visible_cells、NATOAI.share_intel（DamageCalculator 已转正接入，MovementSystem.validate_path 已删除，EMISystem.apply_countermeasure 已激活）
+- [x] [P3] project.godot - **输入映射双轨**：6 个动作（camera/pause/fullscreen）运行时补建未入配置；配置的 5 个动作（ui_click_left 等）零消费；plan_cancel events 含 null 元素。→ 已修（0.6.0：代码消费配置动作 plan_confirm/plan_cancel/toggle_card_panel，运行时补建兜底，plan_cancel null 移除）
 - [ ] [P3] 注释乱码 - 部分文件 GBK/UTF-8 混用（CardUI.gd:6 等），统一 UTF-8。
 - [ ] [P3] UnitBase 多格单位视觉重叠 - T72(4,7) 2×2 与步兵/碉堡占地重叠（引擎按锚点判占用无功能冲突，美术迭代错开）。
 - [ ] [P3] HexPathfinding.gd:81-83 vs MovementSystem - 高度差成本不一致：寻路上坡 +1/级，执行不扣 → 执行比 UI 宽松。
@@ -70,3 +70,5 @@
 - 0.5.9 批A（10 项）：VP/出生点唯一化/读档士气顺序/卡牌类型防护/平民惩罚对象/移动预算统一/士气修正生效/morale 透传/初始士气 70/power_cut 去重/静默入档/换关 SceneTreeTimer
 - 0.6.0 卡牌批B（10 项）：EMI 卡立即生效/EMI 时长语义/电磁反制方向（降 EMI）/卡牌状态门禁/乱码卡效果池/战报谎言假接触/布雷 1×2/范围方形统一/阵地加固即时化/烟雾时点修正/存档补 pending+buff/无线电静默指令门禁
 - 0.6.0 批B 剩余（6 项）：AI 盲射射程/弹药/AI 集中突击 LOS 预校验/误伤惩罚移到命中后/存档 version 校验/第5关预备队死数据/nato_ai_behavior 以 DB 为权威
+- 0.6.0 战斗系统（10 项 P2+）：伤害公式统一/侧后装甲枚举/面杀伤接入/近战反击/弹药补给/指挥阵亡惩罚+直升机统计/触雷幸存者/速度排序/行为演进/指挥点资源系统
+- 0.6.0 体验完善（5 项）：无线电对话 UI/输入映射统一/ARCHITECTURE 重写/validate_path 删除/第3-10关主题地形核查确认

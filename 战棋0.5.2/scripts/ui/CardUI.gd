@@ -95,6 +95,13 @@ func _draw_help_bar(cs: Vector2) -> void:
 	var help_color = Color(0.85, 0.85, 0.85)
 	var font_size = int(maxf(10.0, cs.x * 0.075))
 
+	# 指挥点显示（修复批B: 出牌消耗资源, 帮助栏实时显示）
+	var cp_text := "指挥点: %d/%d" % [CardSystem.command_points, CardSystem.MAX_COMMAND_POINTS]
+	draw_string(ThemeDB.fallback_font,
+		Vector2(bar_x + bar_w - 10, bar_y + bar_h * 0.72),
+		cp_text, HORIZONTAL_ALIGNMENT_RIGHT, -1, font_size,
+		Color.YELLOW if CardSystem.command_points > 0 else Color.RED)
+
 	# 已选中卡牌 → 提示去地图点目标
 	if selected_card_index >= 0 and selected_card_index < hand.size():
 		var card = hand[selected_card_index]
