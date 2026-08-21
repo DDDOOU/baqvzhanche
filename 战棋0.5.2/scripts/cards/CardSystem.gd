@@ -49,19 +49,21 @@ var radio_silence_active: bool = false
 ## === 断电debuff ===
 var power_cut_units: Dictionary = {}    # unit_id → {turns: int, orig_accuracy: float}
 
+## === 战报谎言假接触（修复批B: 原实现只有日志无效果） ===
+var false_report_cells: Dictionary = {}  # "col,row" → 剩余回合数
+
 ## === 延迟卡牌效果（计划阶段标记，演绎阶段结算） ===
 var pending_card_effects: Array = []     # [{card_id, card_name, target_col, target_row, data}]
 
 ## === 哪些卡牌是延迟结算的（位置相关） ===
+## 修复(批B): 仅保留"演绎阶段区域伤害"类。buff 卡（坐标预判/阵地加固/
+## 牺牲冲锋/断电）与区域控制卡（烟雾/布雷）改为即时生效——
+## 1) buff 卡延迟到演绎末尾才写入 buff 表, 攻击计算（行动期间查询）查不到,
+##    效果对当回合战斗永久丢失;
+## 2) 烟雾/布雷延迟到演绎末尾施放, 本回合演绎已结束, "下回合生效"永远落空。
 const DEFERRED_CARDS: Array[String] = [
 	"blind_fire_barrage",    # 盲射弹幕 — 3×3范围伤害
 	"call_artillery",        # 呼叫炮击 — 2×2范围伤害
-	"coordinate_prediction", # 坐标预判 — 指定格命中buff
-	"fortify_position",      # 阵地加固 — 指定格防御buff
-	"sacrifice_charge",      # 牺牲冲锋 — 指定格单位伤害buff
-	"power_cut",             # 断电 — 指定格敌方单位debuff
-	"smoke_screen",          # 烟雾遮障 — 区域烟雾
-	"sapper_mines",          # 工兵布雷 — 指定格地雷
 ]
 
 ## === 信号 ===
@@ -87,6 +89,7 @@ func initialize_level(level_card_ids: Array) -> void:
 	sacrifice_buffs.clear()
 	fortify_buffs.clear()
 	power_cut_units.clear()
+	false_report_cells.clear()
 	radio_silence_active = false
 	loan_available = true
 	loan_used_this_turn = false
@@ -163,6 +166,13 @@ func use_card(card_index: int, target_col: int, target_row: int) -> bool:
 	if card_index < 0 or card_index >= hand.size():
 		return false
 
+	# 修复(批B): 状态门禁 — 演绎阶段禁止出牌（延迟卡入 pending 但 resolve 已过,
+	# 效果会永久丢失; 即时卡在演绎中结算也会破坏时序）
+	if GameManager.current_state != GameManager.GameState.PLANNING_PHASE \
+			or TurnManager.orders_locked:
+		print("[CardSystem] 非计划阶段禁止使用卡牌")
+		return false
+
 	var card = hand[card_index]
 	if not card.is_usable():
 		print("[CardSystem] 卡牌冷却中: %s (%d回合)" % [card.card_name, card.cooldown])
@@ -222,10 +232,12 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 			print("[CardSystem] 盲射弹幕生效: (%d,%d)" % [target_col, target_row])
 
 		"smoke_screen":
-			# 烟雾遮障：4×4范围烟雾
-			CombatSystem.apply_smoke(target_col, target_row, 1, 4)
-			BattleLog.add_log("[卡牌] 烟雾遮障覆盖 (%d,%d) 4×4范围" % [target_col, target_row], Color(0.6, 0.6, 0.6))
-			print("[CardSystem] 烟雾遮障生效: (%d,%d)" % [target_col, target_row])
+			# 烟雾遮障：4×4范围烟雾（修复批B: 原 DEFERRED 演绎末尾施放 duration=1,
+			# 回合结算 tick_smoke 立刻衰减 → "下回合生效"实际从未生效。
+			# 改为即时施放 duration=2: 本回合演绎 + 下回合敌方命中-40%）
+			CombatSystem.apply_smoke(target_col, target_row, 2, 4)
+			BattleLog.add_log("[卡牌] 烟雾遮障覆盖 (%d,%d) 4×4范围, 本回合及下回合有效" % [target_col, target_row], Color(0.6, 0.6, 0.6))
+			print("[CardSystem] 烟雾遮障生效: (%d,%d) 持续2回合" % [target_col, target_row])
 
 		"call_artillery":
 			# 呼叫炮击：2×2范围炮击（attacker_id=-1 表示卡牌源攻击）
@@ -245,10 +257,11 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 			print("[CardSystem] 阵地加固: (%d,%d) 防御+50%%" % [target_col, target_row])
 
 		"emi_countermeasure":
-			# 电磁反制：EMI+10%
-			EMISystem.add_temp_modifier(0.10, 2)
-			BattleLog.add_log("[卡牌] 电磁反制: EMI+10%% 持续2回合" , Color(0.8, 0.4, 1.0))
-			print("[CardSystem] 电磁反制生效")
+			# 电磁反制：降低EMI 10%（修复批B: 原实现 EMI+10% 自损且方向与卡名相反,
+			# 用户决策按卡名语义"反制"= 保护己方电子设备, 改为降 EMI）
+			EMISystem.apply_countermeasure()
+			BattleLog.add_log("[卡牌] 电磁反制: EMI-10%% 持续2回合" , Color(0.8, 0.4, 1.0))
+			print("[CardSystem] 电磁反制生效: EMI 降低10%")
 
 		"radio_silence":
 			# 无线电静默：己方隐蔽+50%
@@ -275,10 +288,17 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 				print("[CardSystem] 预备队投入失败: 目标格被占或不可通行")
 
 		"sapper_mines":
-			# 工兵布雷
-			MovementSystem.lay_mines(target_col, target_row)
-			BattleLog.add_log("[卡牌] 工兵布雷: (%d,%d) 已布设地雷" % [target_col, target_row], Color(0.8, 0.6, 0.2))
-			print("[CardSystem] 工兵布雷生效: (%d,%d)" % [target_col, target_row])
+			# 工兵布雷（修复批B: 描述 1×2 范围, 原实现只布 1 格。
+			# 布目标格 + 右侧相邻格共 2 格, 右侧越界则只布 1 格）
+			var placed := 0
+			for mc in [target_col, target_col + 1]:
+				if not GridManager.is_valid_cell(mc, target_row):
+					continue
+				if not MovementSystem.mine_cells.has(Vector2i(mc, target_row)):
+					MovementSystem.lay_mines(mc, target_row)
+					placed += 1
+			BattleLog.add_log("[卡牌] 工兵布雷: (%d,%d) 起 1×2 范围布设 %d 颗雷" % [target_col, target_row, placed], Color(0.8, 0.6, 0.2))
+			print("[CardSystem] 工兵布雷生效: (%d,%d) 1×2范围 %d 颗雷" % [target_col, target_row, placed])
 
 		"sacrifice_charge":
 			# 牺牲冲锋：指定己方单位1.5倍伤害，战后-50%生命
@@ -312,22 +332,76 @@ func _execute_card_effect(card: CardInstance, target_col: int, target_row: int) 
 				print("[CardSystem] 断电失败: 目标格无敌方单位")
 
 		"false_report":
-			# 战报谎言：在目标格创建虚假情报标记
-			BattleLog.add_log("[卡牌] 战报谎言: (%d,%d) 投放虚假情报" % [target_col, target_row], Color(0.8, 0.8, 0.2))
-			print("[CardSystem] 战报谎言生效: (%d,%d)" % [target_col, target_row])
+			# 战报谎言：在目标格创建虚假情报标记（修复批B: 原实现只有日志无效果。
+			# 现在登记到 false_report_cells, 由 TileGridRenderer 绘制 "?" 假接触,
+			# 敌方 AI 会把它当作未知接触目标, 浪费敌方行动/火力）
+			var key = "%d,%d" % [target_col, target_row]
+			false_report_cells[key] = 1  # 持续1回合
+			BattleLog.add_log("[卡牌] 战报谎言: (%d,%d) 投放虚假情报标记" % [target_col, target_row], Color(0.8, 0.8, 0.2))
+			print("[CardSystem] 战报谎言生效: (%d,%d) 假接触已投放" % [target_col, target_row])
 
 
 func _execute_scrambled_card_effect(card: CardInstance, target_col: int, target_row: int) -> void:
-	"""执行乱码卡效果 — 掷骰判定正/负面"""
+	"""执行乱码卡效果 — 掷骰判定正/负面（修复批B: 原实现只有 print 空分支）"""
 	var roll = randi() % 6  # 0-5
 	if roll < 3:
-		# 正面效果
-		print("[CardSystem] 乱码卡 '%s' 触发正面效果!" % card.card_name)
-		# 随机正面buff
+		# 正面效果（1-3）
+		var effects: Array[String] = [
+			"accuracy",   # 随机己方单位命中+20%
+			"morale",     # 随机己方单位士气+10
+			"repair",     # 随机己方单位恢复30%生命
+		]
+		var chosen: String = effects[randi() % effects.size()]
+		var unit := _get_random_wp_unit()
+		if unit == null:
+			BattleLog.add_log("[乱码卡] %s 触发正面效果，但场上无己方单位" % card.card_name, Color(0.8, 0.8, 0.4))
+			return
+		match chosen:
+			"accuracy":
+				unit.accuracy = minf(0.98, unit.accuracy + 0.20)
+				BattleLog.add_log("[乱码卡] %s 正面效果:「%s」命中+20%%" % [card.card_name, unit.unit_name], Color(0.4, 0.9, 0.4))
+			"morale":
+				MoraleSystem.modify_unit_morale(unit.unit_id, 10, "scrambled_bonus")
+				BattleLog.add_log("[乱码卡] %s 正面效果:「%s」士气+10" % [card.card_name, unit.unit_name], Color(0.4, 0.9, 0.4))
+			"repair":
+				var heal = unit.max_health * 0.30
+				unit.current_health = minf(unit.max_health, unit.current_health + heal)
+				BattleLog.add_log("[乱码卡] %s 正面效果:「%s」修复30%%生命" % [card.card_name, unit.unit_name], Color(0.4, 0.9, 0.4))
+		print("[CardSystem] 乱码卡 '%s' 触发正面效果: %s" % [card.card_name, chosen])
 	else:
-		# 负面效果
-		print("[CardSystem] 乱码卡 '%s' 触发负面效果!" % card.card_name)
-		# 随机负面debuff
+		# 负面效果（4-6）
+		var effects: Array[String] = [
+			"damage",     # 随机己方单位损失25%生命
+			"morale",     # 随机己方单位士气-10
+			"reveal",     # 随机己方单位暴露（解除隐蔽）
+		]
+		var chosen: String = effects[randi() % effects.size()]
+		var unit := _get_random_wp_unit()
+		if unit == null:
+			BattleLog.add_log("[乱码卡] %s 触发负面效果，但场上无己方单位" % card.card_name, Color(0.9, 0.5, 0.4))
+			return
+		match chosen:
+			"damage":
+				unit.take_damage(unit.max_health * 0.25, -1)
+				BattleLog.add_log("[乱码卡] %s 负面效果:「%s」损失25%%生命" % [card.card_name, unit.unit_name], Color(0.9, 0.5, 0.4))
+			"morale":
+				MoraleSystem.modify_unit_morale(unit.unit_id, -10, "scrambled_penalty")
+				BattleLog.add_log("[乱码卡] %s 负面效果:「%s」士气-10" % [card.card_name, unit.unit_name], Color(0.9, 0.5, 0.4))
+			"reveal":
+				unit.is_hidden = false
+				BattleLog.add_log("[乱码卡] %s 负面效果:「%s」隐蔽被暴露" % [card.card_name, unit.unit_name], Color(0.9, 0.5, 0.4))
+		print("[CardSystem] 乱码卡 '%s' 触发负面效果: %s" % [card.card_name, chosen])
+
+
+func _get_random_wp_unit() -> UnitBase:
+	"""随机获取一个存活的华约单位（乱码卡效果目标）"""
+	var units: Array[UnitBase] = []
+	for node in Engine.get_main_loop().get_nodes_in_group("units"):
+		if node is UnitBase and node.is_alive and node.faction == UnitBase.Faction.WARSAW_PACT:
+			units.append(node)
+	if units.is_empty():
+		return null
+	return units[randi() % units.size()]
 
 
 ## === 沙盘演绎阶段：结算延迟卡牌效果 ===
@@ -404,9 +478,17 @@ func resolve_pending_card_effects() -> void:
 				BattleLog.add_log("[卡牌结算] 烟雾遮障: (%d,%d) 4×4范围" % [tc, tr], Color(0.6, 0.6, 0.6))
 
 			"sapper_mines":
-				# 工兵布雷：在标记格布设地雷
-				MovementSystem.lay_mines(tc, tr)
-				BattleLog.add_log("[卡牌结算] 工兵布雷: (%d,%d) 已布设" % [tc, tr], Color(0.8, 0.6, 0.2))
+				# 工兵布雷：在标记格布设地雷（修复批B: 描述 1×2 范围, 原实现只布 1 格。
+				# 现在布目标格 + 右侧相邻格共 2 格, 若右侧越界则只布 1 格）
+				var placed := 0
+				for mc in [tc, tc + 1]:
+					if not GridManager.is_valid_cell(mc, tr):
+						continue
+					var mkey = "%d,%d" % [mc, tr]
+					if not MovementSystem.mine_cells.has(Vector2i(mc, tr)):
+						MovementSystem.lay_mines(mc, tr)
+						placed += 1
+				BattleLog.add_log("[卡牌结算] 工兵布雷: (%d,%d) 起 1×2 范围布设 %d 颗雷" % [tc, tr, placed], Color(0.8, 0.6, 0.2))
 
 	# 结算完毕，清空待处理列表
 	pending_card_effects.clear()
@@ -553,6 +635,15 @@ func tick_cooldowns() -> void:
 			unit.accuracy = entry["orig_accuracy"]  # 修复: 断电 debuff 到期必须恢复命中率
 		power_cut_units.erase(uid)
 
+	# 战报谎言假接触衰减（持续1回合, 回合末清除）
+	var expired_fr = []
+	for key in false_report_cells.keys():
+		false_report_cells[key] = int(false_report_cells[key]) - 1
+		if false_report_cells[key] <= 0:
+			expired_fr.append(key)
+	for key in expired_fr:
+		false_report_cells.erase(key)
+
 	# 重置贷款
 	loan_used_this_turn = false
 
@@ -582,6 +673,12 @@ func is_unit_power_cut(unit_id: int) -> bool:
 	if not power_cut_units.has(unit_id):
 		return false
 	return power_cut_units[unit_id]["turns"] > 0
+
+
+func has_false_report(col: int, row: int) -> bool:
+	"""查询目标格是否有战报谎言假接触标记"""
+	var key = "%d,%d" % [col, row]
+	return false_report_cells.has(key) and int(false_report_cells[key]) > 0
 
 
 func discard_card(card_index: int) -> void:
@@ -662,7 +759,12 @@ func serialize() -> Dictionary:
 		"loan_available": loan_available,
 		"next_turn_penalty": next_turn_card_penalty,
 		"radio_silence_active": radio_silence_active,
-		"power_cut_units": power_cut_units
+		"power_cut_units": power_cut_units,
+		"false_report_cells": false_report_cells,
+		"pending_card_effects": pending_card_effects,
+		"prediction_buffs": prediction_buffs,
+		"fortify_buffs": fortify_buffs,
+		"sacrifice_buffs": sacrifice_buffs,
 	}
 
 
@@ -678,6 +780,12 @@ func deserialize(data: Dictionary) -> void:
 	# 修复: 无线电静默/断电状态入档, 否则读档后 concealment_bonus 永久残留
 	radio_silence_active = bool(data.get("radio_silence_active", false))
 	power_cut_units = data.get("power_cut_units", {}).duplicate(true)
+	# 修复(批B): 战报谎言/延迟卡/buff 状态入档, 计划阶段用卡后读档不丢效果
+	false_report_cells = data.get("false_report_cells", {}).duplicate(true)
+	pending_card_effects = data.get("pending_card_effects", []).duplicate(true)
+	prediction_buffs = data.get("prediction_buffs", {}).duplicate(true)
+	fortify_buffs = data.get("fortify_buffs", {}).duplicate(true)
+	sacrifice_buffs = data.get("sacrifice_buffs", {}).duplicate(true)
 	# 修复: 必须重建卡牌对象, 否则读档后手牌/牌库为空, 卡牌系统整体失效
 	hand = _cards_from_state(data.get("hand", []))
 	deck = _cards_from_state(data.get("deck", []))

@@ -68,13 +68,20 @@ func tick_turn(turn: int) -> void:
 		if turn - 1 < LEVEL_10_EMI_CURVE.size():
 			base_intensity = LEVEL_10_EMI_CURVE[turn - 1]
 
-	# 临时修正衰减
+	# 先重算当前强度（临时修正在本回合演绎中仍生效），再在末尾衰减。
+	# 修复: 原实现在 tick_turn 开头就减 duration, "持续2回合"实际只有1.x回合生效。
+	_apply_temp_modifier_to_intensity()
+
+	# 临时修正衰减（移到重算之后, 用卡当回合 + 后续 duration 回合均生效）
 	if temp_modifier_duration > 0:
 		temp_modifier_duration -= 1
 		if temp_modifier_duration == 0:
 			temp_modifier = 0.0
+			_apply_temp_modifier_to_intensity()
 
-	# 重新计算当前强度
+
+func _apply_temp_modifier_to_intensity() -> void:
+	"""按 base + temp 重算 current_intensity 并刷新修正系数"""
 	var old = current_intensity
 	current_intensity = clampf(base_intensity + temp_modifier, 0.0, 1.0)
 	_update_modifiers()
@@ -131,10 +138,16 @@ func try_scramble_card() -> String:
 
 ## === 临时修正（手牌效果） ===
 func add_temp_modifier(amount: float, duration: int) -> void:
-	"""添加临时EMI修正（如「电磁反制」卡+10%）"""
-	temp_modifier += amount
+	"""添加临时EMI修正（如「电磁反制」卡±10%）并立即生效。
+
+	修复: 原实现只改 temp_modifier/duration 不重算 current_intensity,
+	导致计划阶段用卡后本回合演绎阶段 EMI 无变化（效果延迟一回合）。
+	"""
+	temp_modifier = clampf(temp_modifier + amount, -1.0, 1.0)
 	temp_modifier_duration = maxi(temp_modifier_duration, duration)
-	print("[EMISystem] 临时修正 +%.0f%%, 持续 %d 回合" % [amount * 100, duration])
+	_apply_temp_modifier_to_intensity()
+	BattleLog.add_log("[EMI] 临时修正 %+.0f%%, 持续 %d 回合 (当前 %.0f%%)" % [amount * 100, duration, current_intensity * 100], Color(0.8, 0.5, 1.0))
+	print("[EMISystem] 临时修正 %+.0f%%, 持续 %d 回合, 当前强度 %.0f%%" % [amount * 100, duration, current_intensity * 100])
 
 
 func change_base_intensity(delta: float) -> void:
@@ -149,9 +162,8 @@ func change_base_intensity(delta: float) -> void:
 
 
 func apply_countermeasure() -> void:
-	"""电磁反制：降低EMI（「电磁反制」手牌效果）"""
-	if current_intensity >= 0.9:
-		add_temp_modifier(-0.10, 2)  # 降低10%，持续2回合
+	"""电磁反制：降低EMI（「电磁反制」手牌效果）— 与卡名/描述一致"""
+	add_temp_modifier(-0.10, 2)  # 降低10%，持续2回合
 
 
 ## === 序列化 ===

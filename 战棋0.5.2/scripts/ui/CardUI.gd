@@ -275,6 +275,10 @@ func discard_card_at_pos(mouse_pos: Vector2) -> bool:
 	# 右键点击卡牌弃牌，返回是否成功
 	if not is_panel_open:
 		return false
+	# 修复(批B): 状态门禁 — 演绎阶段禁止弃牌（与 use_card 一致）
+	if GameManager.current_state != GameManager.GameState.PLANNING_PHASE \
+			or TurnManager.orders_locked:
+		return false
 	var idx = get_card_at_pos(mouse_pos)
 	if idx < 0:
 		return false

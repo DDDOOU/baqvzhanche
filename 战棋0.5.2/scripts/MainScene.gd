@@ -665,6 +665,13 @@ func _get_card_effect_cells(card_id: String, center: Vector2i) -> Array:
 			return _get_square_cells(center, 2)
 		"smoke_screen":
 			return _get_square_cells(center, 4)
+		"sapper_mines":
+			# 工兵布雷 1×2：目标格 + 右侧格（与实际布雷逻辑一致）
+			var cells: Array = [center]
+			var right := Vector2i(center.x + 1, center.y)
+			if GridManager.is_valid_cell(right.x, right.y):
+				cells.append(right)
+			return cells
 		_:
 			return [center]
 

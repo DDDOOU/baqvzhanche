@@ -43,28 +43,29 @@ def main() -> int:
     )
     (user_root / "Temp").mkdir(parents=True, exist_ok=True)
     suites = (
-        ("res://tests/unit_config_test.tscn", "[UNIT CONFIG TEST] PASS"),
-        ("res://tests/player_unit_config_test.tscn", "[PLAYER UNIT CONFIG TEST] PASS"),
-        ("res://tests/smoke_test.tscn", "[SMOKE TEST] PASS"),
-        ("res://tests/level_02_smoke_test.tscn", "[LEVEL 02 TEST] PASS"),
-        ("res://tests/campaign_framework_test.tscn", "[CAMPAIGN FRAMEWORK TEST] PASS"),
+    	("res://tests/unit_config_test.tscn", "[UNIT CONFIG TEST] PASS"),
+    	("res://tests/player_unit_config_test.tscn", "[PLAYER UNIT CONFIG TEST] PASS"),
+    	("res://tests/smoke_test.tscn", "[SMOKE TEST] PASS"),
+    	("res://tests/card_system_test.tscn", "[CARD SYSTEM TEST] PASS"),
+    	("res://tests/level_02_smoke_test.tscn", "[LEVEL 02 TEST] PASS"),
+    	("res://tests/campaign_framework_test.tscn", "[CAMPAIGN FRAMEWORK TEST] PASS"),
     )
     for scene, pass_marker in suites:
-        result = subprocess.run(
-            [str(godot), "--headless", "--path", str(PROJECT_DIR), scene],
-            cwd=PROJECT_DIR,
-            env=env,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-        print(result.stdout, end="")
-        bad_markers = ("SCRIPT ERROR", "[UNIT CONFIG TEST] FAIL", "[PLAYER UNIT CONFIG TEST] FAIL", "[SMOKE TEST] FAIL", "[LEVEL 02 TEST] FAIL", "[CAMPAIGN FRAMEWORK TEST] FAIL")
-        if result.returncode != 0 or pass_marker not in result.stdout or any(x in result.stdout for x in bad_markers):
-            return 1
+    	result = subprocess.run(
+    		[str(godot), "--headless", "--path", str(PROJECT_DIR), scene],
+    		cwd=PROJECT_DIR,
+    		env=env,
+    		text=True,
+    		encoding="utf-8",
+    		errors="replace",
+    		stdout=subprocess.PIPE,
+    		stderr=subprocess.STDOUT,
+    		check=False,
+    	)
+    	print(result.stdout, end="")
+    	bad_markers = ("SCRIPT ERROR", "[UNIT CONFIG TEST] FAIL", "[PLAYER UNIT CONFIG TEST] FAIL", "[SMOKE TEST] FAIL", "[CARD SYSTEM TEST] FAIL", "[LEVEL 02 TEST] FAIL", "[CAMPAIGN FRAMEWORK TEST] FAIL")
+    	if result.returncode != 0 or pass_marker not in result.stdout or any(x in result.stdout for x in bad_markers):
+    		return 1
     return 0
 
 

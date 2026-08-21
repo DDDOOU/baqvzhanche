@@ -218,6 +218,19 @@ func get_cells_in_range(center_col: int, center_row: int, range_val: int) -> Arr
 	return result
 
 
+func get_cells_in_square(center_col: int, center_row: int, size: int) -> Array:
+	"""获取以 (center_col,center_row) 为中心的 size×size 方形区域（卡牌范围统一用方形）"""
+	var result: Array = []
+	var half := int(size / 2.0)
+	for dc in range(-half, size - half):
+		for dr in range(-half, size - half):
+			var c := center_col + dc
+			var r := center_row + dr
+			if is_valid_cell(c, r):
+				result.append(Vector2i(c, r))
+	return result
+
+
 ## ==================== 高低差 ====================
 
 func get_height_difference(col1: int, row1: int, col2: int, row2: int) -> int:

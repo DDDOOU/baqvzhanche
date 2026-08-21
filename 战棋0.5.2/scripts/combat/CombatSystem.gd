@@ -313,8 +313,8 @@ func _get_smoke_penalty(col: int, row: int) -> float:
 
 
 func apply_smoke(col: int, row: int, duration: int = 1, radius: int = 4) -> void:
-	"""施加烟雾效果（「烟雾遮障」手牌）"""
-	var cells = GridManager.get_cells_in_range(col, row, radius)
+	"""施加烟雾效果（「烟雾遮障」手牌）— 修复批B: 统一为方形范围（原为曼哈顿菱形, 与 4×4 描述不符）"""
+	var cells = GridManager.get_cells_in_square(col, row, radius)
 	for c in cells:
 		var key = "%d,%d" % [c.x, c.y]
 		smoke_cells[key] = duration
@@ -335,9 +335,9 @@ func tick_smoke() -> void:
 ## === 面杀伤 ===
 func execute_area_attack(attacker_id: int, center_col: int, center_row: int,
 		radius: int) -> Array[Dictionary]:
-	"""对区域进行面杀伤（BM-21、呼叫炮击）"""
+	"""对区域进行面杀伤（BM-21、呼叫炮击）— 修复批B: 统一方形范围"""
 	var results: Array[Dictionary] = []
-	var cells = GridManager.get_cells_in_range(center_col, center_row, radius)
+	var cells = GridManager.get_cells_in_square(center_col, center_row, radius)
 	for c in cells:
 		var target = _get_unit_at(c.x, c.y)
 		if target and target.unit_id != attacker_id:
@@ -349,9 +349,9 @@ func execute_area_attack(attacker_id: int, center_col: int, center_row: int,
 ## === 盲射（Blind Fire） ===
 func execute_blind_fire(attacker_id: int, center_col: int, center_row: int,
 		spread: int = 3) -> Array[Dictionary]:
-	"""盲射：对3×3范围进行无差别射击 — 可能误伤"""
+	"""盲射：对3×3范围进行无差别射击 — 可能误伤（修复批B: 统一方形范围）"""
 	var results: Array[Dictionary] = []
-	var cells = GridManager.get_cells_in_range(center_col, center_row, spread)
+	var cells = GridManager.get_cells_in_square(center_col, center_row, spread)
 	for c in cells:
 		var target = _get_unit_at(c.x, c.y)
 		if target and target.unit_id != attacker_id:

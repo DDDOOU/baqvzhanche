@@ -101,6 +101,11 @@ func submit_order(unit_id: int, order: Dictionary, is_player: bool = true) -> bo
 		print("[TurnManager] 指令已锁定，无法提交")
 		return false
 
+	# 无线电静默期间己方无法使用任何指令（卡牌代价, 修复批B: 描述实现）
+	if is_player and CardSystem.radio_silence_active:
+		print("[TurnManager] 无线电静默中，己方无法下达指令")
+		return false
+
 	# 命令必须拥有独立数据。UI随后会清理待确认路径，如果保存同一个Array引用，
 	# 玩家订单的path会被一起清空；AI不经过UI清理，所以此前只有敌军能移动。
 	var stored_order := order.duplicate(true)
