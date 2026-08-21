@@ -150,10 +150,31 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 		Vector2(rect.position.x + rect.size.x * 0.94, line_y),
 		Color.WHITE.darkened(0.5), 1.0)
 
+	# 卡面贴图（修复批B: 接入 AI 生成美术素材 — assets/cards/{id}.png）
+	var art_tex := _get_card_art(card)
+	if art_tex != null:
+		# 中上区域绘制卡面, 描述区下移
+		var art_area := Rect2(
+			rect.position + Vector2(rect.size.x * 0.08, rect.size.y * 0.22),
+			Vector2(rect.size.x * 0.84, rect.size.y * 0.46)
+		)
+		var tex_size := art_tex.get_size()
+		if tex_size.x > 0 and tex_size.y > 0:
+			var scale := minf(art_area.size.x / tex_size.x, art_area.size.y / tex_size.y)
+			var draw_size := tex_size * scale
+			var draw_pos := art_area.position + (art_area.size - draw_size) * 0.5
+			draw_texture_rect(art_tex, Rect2(draw_pos, draw_size), false)
+			# 卡面底部加半透明遮罩分隔
+			var shade_top := draw_pos.y + draw_size.y
+			draw_rect(Rect2(rect.position.x, shade_top, rect.size.x, 2.0),
+				Color.WHITE.darkened(0.55), true)
+
 	# 效果描述
+	var desc_top := rect.position.y + rect.size.y * 0.72 if art_tex != null \
+		else rect.position.y + rect.size.y * 0.24
 	var desc_rect := Rect2(
-		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.24),
-		Vector2(rect.size.x * 0.88, rect.size.y * 0.52)
+		rect.position + Vector2(rect.size.x * 0.06, desc_top - rect.position.y),
+		Vector2(rect.size.x * 0.88, rect.size.y * 0.22)
 	)
 	_draw_wrapped_text(desc_rect, str(card.data.get("description", "")),
 		desc_font, Color.WHITE.darkened(0.2))
@@ -177,6 +198,21 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 			rect.position + Vector2(rect.size.x / 2, rect.size.y / 2),
 			"?", HORIZONTAL_ALIGNMENT_CENTER, -1, rect.size.x * 0.3,
 			Color.YELLOW.darkened(0.5))
+
+
+## === 卡面贴图缓存 ===
+var _card_art_cache: Dictionary = {}  # card_id → Texture2D
+
+func _get_card_art(card) -> Texture2D:
+	"""按卡牌 id 加载 AI 生成卡面; 乱码卡用专用碎裂图; 缺失时返回 null 回退纯色。"""
+	var art_id := "scrambled" if card.is_scrambled else String(card.data.get("id", ""))
+	if art_id.is_empty():
+		return null
+	if _card_art_cache.has(art_id):
+		return _card_art_cache[art_id]
+	var tex := load("res://assets/cards/%s.png" % art_id) as Texture2D
+	_card_art_cache[art_id] = tex
+	return tex
 
 
 func _draw_wrapped_text(bounds: Rect2, text: String, font_size: int, color: Color) -> void:
