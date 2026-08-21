@@ -86,18 +86,14 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	else:
 		attacker_faction = attacker.faction
 
-	# 误伤检测
-	if target.faction == attacker_faction:
+	# 误伤检测（修复批B: 只标记, 惩罚移到命中确认后触发——落空不再扣士气）
+	var is_friendly_fire: bool = target.faction == attacker_faction
+	var is_civilian: bool = target.unit_type == UnitBase.UnitType.CIVILIAN_CONVOY
+	if is_friendly_fire:
 		result["friendly_fire"] = true
 		friendly_fire_occurred.emit(attacker_id, target.unit_id)
-		if not is_card_attack:
-			MoraleSystem.apply_friendly_fire_penalty(attacker_id, 1.0)
-
-	# 平民检测
-	if target.unit_type == UnitBase.UnitType.CIVILIAN_CONVOY:
+	if is_civilian:
 		civilian_hit.emit(target.unit_id)
-		if not is_card_attack:
-			MoraleSystem.apply_civilian_casualty_penalty(attacker_id)
 
 	# 命中判定
 	var hit_chance: float
@@ -124,7 +120,7 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	result["roll"] = roll
 	# 扣弹药代表已经开火；未命中也必须消耗一发。
 	if not is_card_attack:
-		attacker.current_ammo -= 1
+		attacker.current_ammo = maxi(0, attacker.current_ammo - 1)  # 修复批B: 弹药不为负
 
 	if roll > hit_chance:
 		result["hit"] = false
@@ -160,6 +156,14 @@ func execute_attack(attacker_id: int, target_col: int, target_row: int,
 	target.take_damage(base_damage, attacker_id)
 	# 受创掉士气（修复: 士气系统原无受创反馈, 按伤害比例扣 上限10至少1）
 	MoraleSystem.modify_unit_morale(target.unit_id, -clampi(int(base_damage / 12.0), 1, 10), "受创")
+
+	# 修复批B: 误伤/平民惩罚在命中确认后触发（落空不再扣士气）
+	if not is_card_attack:
+		if is_friendly_fire:
+			MoraleSystem.apply_friendly_fire_penalty(attacker_id, 1.0)
+		if is_civilian:
+			MoraleSystem.apply_civilian_casualty_penalty(attacker_id)
+
 	var was_destroyed = false
 	if not target.is_alive:
 		result["destroyed"] = true

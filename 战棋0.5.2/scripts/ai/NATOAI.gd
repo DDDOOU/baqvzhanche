@@ -69,56 +69,23 @@ func plan_turn(turn: int) -> void:
 
 
 ## === 行为倾向更新 ===
-func _update_behavior(turn: int, level_id: int) -> void:
-	"""根据关卡和回合更新AI行为倾向"""
+func _update_behavior(_turn: int, level_id: int) -> void:
+	"""根据关卡和回合更新AI行为倾向
+
+	修复批B: 以 LevelDatabase 声明的 nato_ai_behavior 为基准（原实现按
+	level_id/turn 硬编码重算, 与数据声明不符且零消费——如第6关声明
+	SPEED_RUSH 实际跑 FIRE_SUPPRESSION）。现在数据是唯一权威,
+	仅保留 EMI 混乱覆盖作为动态层。
+	"""
 	var old = current_behavior
 
-	# 第1-3关: 速胜 → 稳推 → 火力压制
-	if level_id <= 2:
-		match level_id:
-			0: current_behavior = AIBehavior.SPEED_RUSH
-			1:
-				if turn <= 5:
-					current_behavior = AIBehavior.STEADY_PUSH
-				else:
-					current_behavior = AIBehavior.FIRE_SUPPRESSION
-			2:
-				if turn <= 3:
-					current_behavior = AIBehavior.FIRE_SUPPRESSION
-				else:
-					current_behavior = AIBehavior.STEADY_PUSH
-
-	# 第4-7关: 稳推/火力压制 → 稳推 → 混乱 → 稳推
-	elif level_id <= 6:
-		if level_id == 6:  # 第7关 EMI 100%
-			if turn <= 5:
-				current_behavior = AIBehavior.CHAOS
-			else:
-				current_behavior = AIBehavior.STEADY_PUSH
-		elif EMISystem.current_intensity > 0.7:
-			if randf() < 0.4:
-				current_behavior = AIBehavior.CHAOS
-			else:
-				current_behavior = AIBehavior.STEADY_PUSH
-		else:
-			current_behavior = AIBehavior.FIRE_SUPPRESSION
-
-	# 第8-10关: 稳推/火力压制 → 集中突击 → 速胜/稳推
+	var level_data = LevelDatabase.get_level(level_id)
+	if level_data:
+		current_behavior = level_data.nato_ai_behavior
 	else:
-		if level_id == 9:  # 第10关
-			if turn <= 5 and EMISystem.current_intensity > 0.5:
-				current_behavior = AIBehavior.CONCENTRATED
-			else:
-				current_behavior = AIBehavior.SPEED_RUSH
-		elif level_id == 8:  # 第9关
-			if turn >= 6:
-				current_behavior = AIBehavior.CONCENTRATED
-			else:
-				current_behavior = AIBehavior.STEADY_PUSH
-		else:
-			current_behavior = AIBehavior.STEADY_PUSH
+		current_behavior = AIBehavior.STEADY_PUSH
 
-	# EMI高时可能切换到混乱
+	# EMI高时可能切换到混乱（保留动态覆盖, 原硬编码的 EMI 分支由此取代）
 	if EMISystem.current_intensity >= 0.9 and randf() < 0.5:
 		current_behavior = AIBehavior.CHAOS
 
@@ -246,27 +213,45 @@ func _plan_fire_suppression(turn: int) -> void:
 	for i in range(nato_units.size()):
 		var unit = nato_units[i]
 		if i < blind_fire_count:
+			# 修复批B: 弹药为0或过低时不再盲射（盲射是低效射击, 应保留弹药给直射）
+			if unit.current_ammo < 2:
+				_plan_unit_steady(unit)
+				continue
 			# 盲射已知玩家位置
 			if not known_player_positions.is_empty():
 				var target_pos = known_player_positions.pick_random()
-				TurnManager.submit_order(unit.unit_id, {
-					"type": "attack",
-					"target_col": target_pos.x,
-					"target_row": target_pos.y,
-					"attack_type": CombatSystem.AttackType.BLIND_FIRE
-				}, false)
+				if _can_blind_fire_at(unit, target_pos.x, target_pos.y):
+					TurnManager.submit_order(unit.unit_id, {
+						"type": "attack",
+						"target_col": target_pos.x,
+						"target_row": target_pos.y,
+						"attack_type": CombatSystem.AttackType.BLIND_FIRE
+					}, false)
+				else:
+					# 目标超出盲射有效距离 → 向目标移动保持压制距离
+					var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
+						target_pos.x, target_pos.y, unit)
+					if not path.is_empty():
+						TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
+					else:
+						_plan_unit_steady(unit)
 			else:
 				# 没有已知位置，随机盲射VP附近
 				var vp = _find_nearest_vp(unit)
 				if vp != Vector2i(-1, -1):
 					var spread_col = vp.x + randi() % 5 - 2
 					var spread_row = vp.y + randi() % 5 - 2
-					TurnManager.submit_order(unit.unit_id, {
-						"type": "attack",
-						"target_col": clampi(spread_col, 0, GridManager.MAP_WIDTH - 1),
-						"target_row": clampi(spread_row, 0, GridManager.MAP_HEIGHT - 1),
-						"attack_type": CombatSystem.AttackType.BLIND_FIRE
-					}, false)
+					var bc := clampi(spread_col, 0, GridManager.MAP_WIDTH - 1)
+					var br := clampi(spread_row, 0, GridManager.MAP_HEIGHT - 1)
+					if _can_blind_fire_at(unit, bc, br):
+						TurnManager.submit_order(unit.unit_id, {
+							"type": "attack",
+							"target_col": bc,
+							"target_row": br,
+							"attack_type": CombatSystem.AttackType.BLIND_FIRE
+						}, false)
+					else:
+						_plan_unit_steady(unit)
 				else:
 					# 无VP无情报 → 追击最近敌人
 					var nearest = _find_nearest_enemy(unit)
@@ -278,6 +263,14 @@ func _plan_fire_suppression(turn: int) -> void:
 		else:
 			# 修复: 只对当前单位做稳推决策, 不再整队重推覆盖前半段盲射指令
 			_plan_unit_steady(unit)
+
+
+## === 盲射距离/弹药校验 ===
+func _can_blind_fire_at(unit: UnitBase, col: int, row: int) -> bool:
+	"""盲射仅限有效距离内（射程×1.5, 修复批B: 原实现全图任意格盲射）"""
+	var dist := GridManager.manhattan_distance(unit.grid_col, unit.grid_row, col, row)
+	var max_blind_range := int(unit.get_effective_range() * 1.5)
+	return dist <= max_blind_range
 
 
 ## === 集中突击计划 ===
@@ -293,11 +286,22 @@ func _plan_concentrated_assault(_turn: int) -> void:
 		var dist = GridManager.manhattan_distance(unit.grid_col, unit.grid_row,
 			primary_target.grid_col, primary_target.grid_row)
 		if dist <= unit.get_effective_range():
-			TurnManager.submit_order(unit.unit_id, {
-				"type": "attack",
-				"target_col": primary_target.grid_col,
-				"target_row": primary_target.grid_row
-			}, false)
+			# 修复批B: 下单前预校验弹药/射程/视线, 避免隔山/隔城提交攻击
+			# → 演绎阶段 invalid_target 扣弹落空整回合无效
+			if unit.can_attack_target(primary_target.grid_col, primary_target.grid_row):
+				TurnManager.submit_order(unit.unit_id, {
+					"type": "attack",
+					"target_col": primary_target.grid_col,
+					"target_row": primary_target.grid_row
+				}, false)
+			else:
+				# 射程内但视线被挡 → 移动到能攻击的位置
+				var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
+					primary_target.grid_col, primary_target.grid_row, unit)
+				if not path.is_empty():
+					TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
+				else:
+					_plan_unit_steady(unit)
 		else:
 			# 向目标移动
 			var path = TilePathfinding.find_path(unit.grid_col, unit.grid_row,
@@ -320,13 +324,19 @@ func _plan_chaos(_turn: int) -> void:
 			if not path.is_empty():
 				TurnManager.submit_order(unit.unit_id, {"type": "move", "path": path}, false)
 		elif roll < 0.7:
-			# 30%: 随机攻击未知位置
+			# 30%: 随机攻击未知位置（修复批B: 弹药不足时改为待命, 避免负弹药）
+			if unit.current_ammo < 2:
+				TurnManager.submit_order(unit.unit_id, {"type": "hold"}, false)
+				continue
 			var blind_col = clampi(unit.grid_col + randi() % 8 - 4, 0, GridManager.MAP_WIDTH - 1)
 			var blind_row = clampi(unit.grid_row + randi() % 8 - 4, 0, GridManager.MAP_HEIGHT - 1)
-			TurnManager.submit_order(unit.unit_id, {
-				"type": "attack", "target_col": blind_col, "target_row": blind_row,
-				"attack_type": CombatSystem.AttackType.BLIND_FIRE
-			}, false)
+			if _can_blind_fire_at(unit, blind_col, blind_row):
+				TurnManager.submit_order(unit.unit_id, {
+					"type": "attack", "target_col": blind_col, "target_row": blind_row,
+					"attack_type": CombatSystem.AttackType.BLIND_FIRE
+				}, false)
+			else:
+				TurnManager.submit_order(unit.unit_id, {"type": "hold"}, false)
 		else:
 			# 30%: 原地待命
 			TurnManager.submit_order(unit.unit_id, {"type": "hold"}, false)

@@ -10,11 +10,11 @@
 - [x] [P1] EMISystem.gd:72-75 - **EMI 临时修正时长少 1 回合**：tick_turn 开头即减 duration，「持续2回合」实际 1.x 回合。（建议：结算末尾衰减或改语义）→ 已修（0.6.0：先重算后衰减）
 - [x] [P1] EMISystem.gd:151-155 + CardDatabase.gd:58-65 - **电磁反制卡方向矛盾**：卡牌执行 EMI+10%（自损）而 apply_countermeasure（降 EMI）是死代码，卡名与效果相反。（建议：定设计意图，二选一）→ 已修（0.6.0：按卡名语义降 EMI 10%，用户拍板）
 - [x] [P1] CardSystem.gd:161-187 - **卡牌使用无状态门禁**：演绎阶段卡牌面板仍可用，延迟卡入 pending 但 resolve 已过 → 效果永久丢失。（建议：use_card 加 PLANNING 校验）→ 已修（0.6.0：use_card/弃牌均限 PLANNING + orders_locked）
-- [ ] [P1] CombatSystem.gd:88-98 - **误伤/平民惩罚在命中判定前触发**：对友军/平民开火即使落空也扣 -15/-20 士气、累计误伤/平民数。（建议：判定移到命中后，或明确"开火即事件"改文案）
-- [ ] [P1] NATOAI.gd:252-269 - **AI 盲射无射程/弹药检查**：全图任意格 BLIND_FIRE，弹药可为负（execute_attack:125 无 maxi）。（建议：盲射限射程×1.5 + ammo 检查 + maxi(0)）
-- [ ] [P1] NATOAI.gd:295-300 - **AI 集中突击无 LOS 校验**：隔山/隔城提交攻击 → 演绎 invalid_target 扣弹落空整回合无效。（建议：下单前 can_attack_target 预校验，不过改移动）
-- [ ] [P1] LevelDatabase.gd:351-354 - **第5关预备队死数据**：wp_reserve_units（T72+步兵 turn4）无任何消费方，该关无 turn_events。（建议：补 reserve_ready 事件或删死数据）
-- [ ] [P1] LevelDatabase.gd:148 等10处 - **nato_ai_behavior 零消费**：AI 行为由 NATOAI 硬编码 level_id/turn 重算，数据声明（如第6关 SPEED_RUSH）与实际（FIRE_SUPPRESSION）不符。（建议：_update_behavior 以 DB 为基准）
+- [x] [P1] CombatSystem.gd:88-98 - **误伤/平民惩罚在命中判定前触发**：对友军/平民开火即使落空也扣 -15/-20 士气、累计误伤/平民数。（建议：判定移到命中后，或明确"开火即事件"改文案）→ 已修（0.6.0：惩罚移到命中确认后，落空不再扣士气）
+- [x] [P1] NATOAI.gd:252-269 - **AI 盲射无射程/弹药检查**：全图任意格 BLIND_FIRE，弹药可为负（execute_attack:125 无 maxi）。（建议：盲射限射程×1.5 + ammo 检查 + maxi(0)）→ 已修（0.6.0：_can_blind_fire_at 射程×1.5 + 弹药<2 转稳推/待命 + ammo maxi(0)）
+- [x] [P1] NATOAI.gd:295-300 - **AI 集中突击无 LOS 校验**：隔山/隔城提交攻击 → 演绎 invalid_target 扣弹落空整回合无效。（建议：下单前 can_attack_target 预校验，不过改移动）→ 已修（0.6.0：can_attack_target 预校验，失败改移动/稳推）
+- [x] [P1] LevelDatabase.gd:351-354 - **第5关预备队死数据**：wp_reserve_units（T72+步兵 turn4）无任何消费方，该关无 turn_events。（建议：补 reserve_ready 事件或删死数据）→ 已修（0.6.0：补 reserve_ready 事件 + MainScene 生成预备队单位）
+- [x] [P1] LevelDatabase.gd:148 等10处 - **nato_ai_behavior 零消费**：AI 行为由 NATOAI 硬编码 level_id/turn 重算，数据声明（如第6关 SPEED_RUSH）与实际（FIRE_SUPPRESSION）不符。（建议：_update_behavior 以 DB 为基准）→ 已修（0.6.0：_update_behavior 以 DB 声明为权威，仅保留 EMI 混乱覆盖）
 - [x] [P1] CardSystem.gd:317-328 - **乱码卡效果空实现**：掷骰后只 print，正/负效果分支为空。（建议：补随机 buff/debuff 池）→ 已修（0.6.0：1-3 正面/4-6 负面效果池）
 - [x] [P1] CardSystem.gd:311-314 - **战报谎言卡无效果**：只有战报日志，描述"情报+1个虚假单位"未实现。（建议：实现假接触标记或暂时移出起始手牌）→ 已修（0.6.0：false_report_cells + "?" 标记绘制 + 入档）
 - [x] [P1] CardDatabase.gd:85-92 - **工兵布雷描述 1×2 vs 实现单格**：lay_mines 只布 1 个雷。（建议：做 2 格或改描述）→ 已修（0.6.0：目标格+右侧格双格）
@@ -69,3 +69,4 @@
 - 0.5.8（18 项）：第 1 关地形坐标根治/换关死锁/pending 残留/读档士气键失配/卡牌回填/即时胜负 kills/invalid_target 扣弹/触雷停止/rally 去重/AI 过滤 NEUTRAL/卡牌误伤平民/读档事件不重复/空存档防护/遭遇战 continue
 - 0.5.9 批A（10 项）：VP/出生点唯一化/读档士气顺序/卡牌类型防护/平民惩罚对象/移动预算统一/士气修正生效/morale 透传/初始士气 70/power_cut 去重/静默入档/换关 SceneTreeTimer
 - 0.6.0 卡牌批B（10 项）：EMI 卡立即生效/EMI 时长语义/电磁反制方向（降 EMI）/卡牌状态门禁/乱码卡效果池/战报谎言假接触/布雷 1×2/范围方形统一/阵地加固即时化/烟雾时点修正/存档补 pending+buff/无线电静默指令门禁
+- 0.6.0 批B 剩余（6 项）：AI 盲射射程/弹药/AI 集中突击 LOS 预校验/误伤惩罚移到命中后/存档 version 校验/第5关预备队死数据/nato_ai_behavior 以 DB 为权威

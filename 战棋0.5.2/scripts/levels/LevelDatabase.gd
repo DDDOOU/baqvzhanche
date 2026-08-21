@@ -362,6 +362,13 @@ func _build_level_05() -> LevelData:
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 15, "row": 6},
 		{"type": UnitBase.UnitType.MECH_INFANTRY, "col": 16, "row": 7},
 	]
+	# 修复批B: 第5关"预备队投入"主题 — 补 turn_events 消费 wp_reserve_units 死数据,
+	# 第4回合预备队就绪: 授予"预备队投入"卡 + 在华约指挥中心旁生成 T72/步兵
+	level.turn_events = [
+		{"turn": 4, "phase": "turn_start", "id": "reserve_ready",
+			"description": "华约预备队已就绪：T-72与步兵班待命，可投入战场",
+			"spawn_reserves": true},
+	]
 	level.intel_a = "敌方机械化纵队至少8个单位。"
 	level.intel_b = "预备队可能不足，需要谨慎使用。"
 	return level

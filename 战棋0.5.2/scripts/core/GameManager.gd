@@ -47,8 +47,12 @@ var _pending_game_over: Dictionary = {}      # 即时胜负挂起 {winner, reaso
 
 ## === Bug追踪与版本控制 ===
 var bug_tracker: Dictionary = {}     # bug_id -> {description, status, fix_version}
-var version: String = "0.5.0"
-var build_number: int = 6
+var version: String = "0.6.0"
+var build_number: int = 7
+
+## 存档结构版本 — 与 version 分离: 结构变更(字段增删/格式改动)时递增,
+## 语义版本不变也需迁移。加载时严格校验, 防止跨版本静默错读。
+const SAVE_VERSION: int = 2
 
 
 func _ready() -> void:
@@ -373,6 +377,7 @@ func save_game(slot: int) -> void:
 			units.append(unit.serialize())
 	var save_data = {
 		"version": version,
+		"save_version": SAVE_VERSION,
 		"build": build_number,
 		"level": current_level_id,
 		"turn": TurnManager.serialize(),
@@ -403,6 +408,12 @@ func load_game(slot: int) -> bool:
 	file.close()
 	if not data is Dictionary or not data.has("level") or not data.has("units"):
 		push_error("[GameManager] 存档槽位 %d 格式无效" % slot)
+		return false
+	# 修复批B: 存档结构版本严格校验 — 旧版(无 save_version)与未来版本一律拒绝,
+	# 防止跨版本格式静默错读（字段缺失→读档后系统空转/崩溃）
+	if not data.has("save_version") or int(data["save_version"]) != SAVE_VERSION:
+		push_error("[GameManager] 存档槽位 %d 版本不兼容 (存档 v%s, 当前 v%d) — 请重新开始" % [
+			slot, str(data.get("save_version", "旧格式")), SAVE_VERSION])
 		return false
 	pending_save_data = data
 	print("[GameManager] 存档槽位 %d 已读取，等待场景恢复" % slot)

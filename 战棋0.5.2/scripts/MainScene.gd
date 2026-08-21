@@ -885,6 +885,21 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 		"reserve_ready":
 			if CardSystem.grant_card("reserve_deployment"):
 				BattleLog.add_log("华约预备队已就绪：“预备队投入”加入手牌。", Color(0.3, 1.0, 0.45))
+			# 修复批B: 消费 LevelDatabase 的 wp_reserve_units 死数据 —
+			# 事件带 spawn_reserves 标志时, 把本回合到期的预备队单位生成到增援点
+			if data.get("spawn_reserves", false):
+				var ld := LevelDatabase.get_level(GameManager.current_level_id)
+				if ld and not ld.wp_reserve_units.is_empty():
+					var spawned := 0
+					for reserve in ld.wp_reserve_units:
+						if int(reserve.get("turn", 1)) <= TurnManager.current_turn:
+							var unit := _spawn_reinforcement(
+								int(reserve.get("type", UnitBase.UnitType.INFANTRY_SQUAD)),
+								UnitBase.Faction.WARSAW_PACT)
+							if unit:
+								spawned += 1
+					if spawned > 0:
+						BattleLog.add_log("华约预备队 %d 支单位抵达战场。" % spawned, Color(0.3, 1.0, 0.45))
 		"refugee_convoy":
 			_spawn_unit_near(UnitBase.UnitType.CIVILIAN_CONVOY, UnitBase.Faction.NEUTRAL, Vector2i(11, 9))
 		"flood_preview":
