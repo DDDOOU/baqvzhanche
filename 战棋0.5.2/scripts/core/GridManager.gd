@@ -87,14 +87,19 @@ class TileCell:
 		var depression_bonus := maxf(0.0, float(-get_effective_height()) * 0.10)
 		return clampf(base_concealment + depression_bonus, 0.0, 0.9)
 
-	func is_passable_for(is_armored: bool) -> bool:
+	func is_passable_for(is_armored: bool, unit: UnitBase = null) -> bool:
 		if is_destroyed:
 			return false
 		if custom_passable >= 0:
 			return custom_passable == 1
-		if terrain == TerrainType.RIVER and is_armored:
+		# 修复批B: 空中/两栖单位可越河越山（AH-64 can_cross_river/mountain 字段消费）
+		var can_cross := false
+		if unit != null:
+			can_cross = (unit.can_cross_river or unit.can_cross_mountain) \
+				and unit.unit_type == UnitBase.UnitType.AH64_HELICOPTER
+		if terrain == TerrainType.RIVER and is_armored and not can_cross:
 			return false
-		if terrain == TerrainType.MOUNTAIN and is_armored:
+		if terrain == TerrainType.MOUNTAIN and is_armored and not can_cross:
 			return false
 		return true
 
@@ -215,6 +220,19 @@ func get_cells_in_range(center_col: int, center_row: int, range_val: int) -> Arr
 		for row in range(MAP_HEIGHT):
 			if manhattan_distance(center_col, center_row, col, row) <= range_val:
 				result.append(Vector2i(col, row))
+	return result
+
+
+func get_cells_in_square(center_col: int, center_row: int, size: int) -> Array:
+	"""获取以 (center_col,center_row) 为中心的 size×size 方形区域（卡牌范围统一用方形）"""
+	var result: Array = []
+	var half := int(size / 2.0)
+	for dc in range(-half, size - half):
+		for dr in range(-half, size - half):
+			var c := center_col + dc
+			var r := center_row + dr
+			if is_valid_cell(c, r):
+				result.append(Vector2i(c, r))
 	return result
 
 

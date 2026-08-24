@@ -113,6 +113,9 @@ func _draw() -> void:
 				_draw_iso_highlight(col, row, HL_HOVER)
 			if cell.marker != GridManager.CellMarker.NONE:
 				_draw_iso_marker(col, row, cell.marker)
+			# 战报谎言假接触标记（"?" 未知接触, 敌方视角的虚假情报）
+			if CardSystem.has_false_report(col, row):
+				_draw_iso_marker(col, row, GridManager.CellMarker.UNKNOWN_CONTACT)
 
 	_draw_planned_paths()
 

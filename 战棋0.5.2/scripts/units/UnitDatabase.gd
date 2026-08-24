@@ -200,21 +200,24 @@ const WP_UNIT_STATS: Dictionary = {
 		"attack": 25, "armor": 10, "penetration": 5,
 		"accuracy": 0.75, "range": 4, "movement": 5,
 		"vision": 5, "size": Vector2i(1, 1),
-		"class": "infantry", "cost": 1
+		"class": "infantry", "cost": 1,
+		"move_speed": 0.8,
 	},
 	UnitBase.UnitType.MOTOR_RIFLE: {
 		"name": "摩托化步兵", "health": 90, "ammo": 120,
 		"attack": 20, "armor": 15, "penetration": 10,
 		"accuracy": 0.70, "range": 5, "movement": 8,
 		"vision": 5, "size": Vector2i(1, 2),
-		"class": "infantry_mech", "cost": 2
+		"class": "infantry_mech", "cost": 2,
+		"move_speed": 1.1,
 	},
 	UnitBase.UnitType.T72B_TANK: {
 		"name": "T-72B 主战坦克", "health": 150, "ammo": 40,
 		"attack": 60, "armor": 70, "penetration": 50,
 		"accuracy": 0.80, "range": 7, "movement": 5,
 		"vision": 4, "size": Vector2i(2, 2),
-		"class": "armor", "cost": 3
+		"class": "armor", "cost": 3,
+		"move_speed": 1.0,
 	},
 	UnitBase.UnitType.BMP2_IFV: {
 		"name": "BMP-2 步兵战车", "health": 120, "ammo": 60,
@@ -222,7 +225,8 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.75, "range": 6, "movement": 7,
 		"vision": 5, "size": Vector2i(1, 2),
 		"class": "ifv", "cost": 2,
-		"can_transport": true, "transport_capacity": 1
+		"can_transport": true, "transport_capacity": 1,
+		"move_speed": 1.1,
 	},
 	UnitBase.UnitType.BM21_ROCKET: {
 		"name": "BM-21 火箭炮", "health": 60, "ammo": 30,
@@ -230,7 +234,8 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.40, "range": 12, "movement": 4,
 		"vision": 3, "size": Vector2i(2, 1),
 		"class": "artillery", "cost": 3,
-		"area_effect": 3
+		"area_effect": 3,
+		"move_speed": 0.9,
 	},
 	UnitBase.UnitType.SA13_AA: {
 		"name": "SA-13 防空导弹", "health": 70, "ammo": 20,
@@ -238,14 +243,16 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.85, "range": 8, "movement": 5,
 		"vision": 6, "size": Vector2i(1, 1),
 		"class": "support", "cost": 2,
-		"anti_air": true, "anti_air_bonus": 0.3
+		"anti_air": true, "anti_air_bonus": 0.3,
+		"move_speed": 1.0,
 	},
 	UnitBase.UnitType.RECON_PLATOON: {
 		"name": "侦察连", "health": 50, "ammo": 80,
 		"attack": 10, "armor": 5, "penetration": 0,
 		"accuracy": 0.60, "range": 4, "movement": 8,
 		"vision": 8, "recon_bonus": 2, "size": Vector2i(1, 1),
-		"class": "support", "cost": 1
+		"class": "support", "cost": 1,
+		"move_speed": 1.0,
 	},
 	UnitBase.UnitType.SAPPERS: {
 		"name": "工兵班", "health": 70, "ammo": 60,
@@ -254,7 +261,8 @@ const WP_UNIT_STATS: Dictionary = {
 		"vision": 5, "size": Vector2i(1, 1),
 		"class": "support", "cost": 1,
 		"can_lay_mines": true, "can_clear_mines": true,
-		"can_repair_bridge": true, "can_destroy_bridge": true
+		"can_repair_bridge": true, "can_destroy_bridge": true,
+		"move_speed": 0.8,
 	},
 	UnitBase.UnitType.COMMAND_ELEMENT: {
 		"name": "指挥组", "health": 50, "ammo": 50,
@@ -262,28 +270,32 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.50, "range": 3, "movement": 4,
 		"vision": 7, "size": Vector2i(1, 1),
 		"class": "support", "cost": 0,
-		"is_command": true, "command_radius": 5
+		"is_command": true, "command_radius": 5,
+		"move_speed": 0.8,
 	},
 	UnitBase.UnitType.RESERVE: {
 		"name": "预备队", "health": 100, "ammo": 100,
 		"attack": 30, "armor": 20, "penetration": 15,
 		"accuracy": 0.70, "range": 5, "movement": 6,
 		"vision": 5, "size": Vector2i(1, 2),
-		"class": "infantry_mech", "cost": 2
+		"class": "infantry_mech", "cost": 2,
+		"move_speed": 1.0,
 	},
 	UnitBase.UnitType.ATGM_TEAM: {
 		"name": "反坦克导弹组", "health": 55, "ammo": 18,
 		"attack": 45, "armor": 5, "penetration": 55,
 		"accuracy": 0.72, "range": 9, "movement": 4,
 		"vision": 6, "size": Vector2i(1, 1),
-		"class": "anti_tank", "cost": 2
+		"class": "anti_tank", "cost": 2,
+		"move_speed": 0.7,
 	},
 	UnitBase.UnitType.BRDM2_RECON: {
 		"name": "BRDM-2 侦察车", "health": 65, "ammo": 70,
 		"attack": 18, "armor": 12, "penetration": 8,
 		"accuracy": 0.66, "range": 5, "movement": 9,
 		"vision": 9, "recon_bonus": 3, "size": Vector2i(1, 1),
-		"class": "recon_vehicle", "cost": 2
+		"class": "recon_vehicle", "cost": 2,
+		"move_speed": 1.3,
 	},
 	UnitBase.UnitType.ZSU23_AA: {
 		"name": "ZSU-23-4 防空车", "health": 85, "ammo": 90,
@@ -291,7 +303,8 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.78, "range": 7, "movement": 6,
 		"vision": 7, "size": Vector2i(1, 1),
 		"class": "air_defense", "cost": 2,
-		"anti_air": true, "anti_air_bonus": 0.25
+		"anti_air": true, "anti_air_bonus": 0.25,
+		"move_speed": 1.1,
 	},
 	UnitBase.UnitType.GVOZDIKA_ARTILLERY: {
 		"name": "2S1 自行火炮", "health": 90, "ammo": 36,
@@ -299,7 +312,8 @@ const WP_UNIT_STATS: Dictionary = {
 		"accuracy": 0.52, "range": 13, "movement": 5,
 		"vision": 4, "size": Vector2i(2, 1),
 		"class": "artillery", "cost": 3,
-		"area_effect": 2
+		"area_effect": 2,
+		"move_speed": 0.9,
 	},
 }
 
@@ -310,7 +324,8 @@ const NATO_UNIT_STATS: Dictionary = {
 		"attack": 65, "armor": 75, "penetration": 55,
 		"accuracy": 0.82, "range": 8, "movement": 6,
 		"vision": 5, "size": Vector2i(2, 2),
-		"class": "armor", "cost": 3
+		"class": "armor", "cost": 3,
+		"move_speed": 1.0,
 	},
 	UnitBase.UnitType.M2_IFV: {
 		"name": "M2 Bradley 步战车", "health": 125, "ammo": 65,
@@ -318,14 +333,16 @@ const NATO_UNIT_STATS: Dictionary = {
 		"accuracy": 0.78, "range": 6, "movement": 7,
 		"vision": 5, "size": Vector2i(1, 2),
 		"class": "ifv", "cost": 2,
-		"can_transport": true, "transport_capacity": 1
+		"can_transport": true, "transport_capacity": 1,
+		"move_speed": 1.1,
 	},
 	UnitBase.UnitType.MECH_INFANTRY: {
 		"name": "机械化步兵", "health": 85, "ammo": 110,
 		"attack": 28, "armor": 20, "penetration": 12,
 		"accuracy": 0.73, "range": 5, "movement": 6,
 		"vision": 5, "size": Vector2i(1, 1),
-		"class": "infantry_mech", "cost": 1
+		"class": "infantry_mech", "cost": 1,
+		"move_speed": 0.8,
 	},
 	UnitBase.UnitType.AH64_HELICOPTER: {
 		"name": "AH-64 阿帕奇", "health": 100, "ammo": 30,
@@ -333,7 +350,8 @@ const NATO_UNIT_STATS: Dictionary = {
 		"accuracy": 0.85, "range": 10, "movement": 12,
 		"vision": 8, "size": Vector2i(1, 1),
 		"class": "air", "cost": 4,
-		"can_cross_river": true, "can_cross_mountain": true
+		"can_cross_river": true, "can_cross_mountain": true,
+		"move_speed": 1.6,
 	},
 	UnitBase.UnitType.NATO_ENGINEER: {
 		"name": "北约工兵", "health": 70, "ammo": 60,
@@ -341,14 +359,16 @@ const NATO_UNIT_STATS: Dictionary = {
 		"accuracy": 0.60, "range": 3, "movement": 6,
 		"vision": 5, "size": Vector2i(1, 1),
 		"class": "support", "cost": 1,
-		"can_lay_mines": true, "can_clear_mines": true
+		"can_lay_mines": true, "can_clear_mines": true,
+		"move_speed": 0.8,
 	},
 	UnitBase.UnitType.M901_ITV: {
 		"name": "M901 反坦克导弹车", "health": 80, "ammo": 16,
 		"attack": 52, "armor": 18, "penetration": 60,
 		"accuracy": 0.74, "range": 10, "movement": 6,
 		"vision": 6, "size": Vector2i(1, 1),
-		"class": "anti_tank", "cost": 3
+		"class": "anti_tank", "cost": 3,
+		"move_speed": 1.2,
 	},
 	UnitBase.UnitType.M109_ARTILLERY: {
 		"name": "M109 自行火炮", "health": 95, "ammo": 34,
@@ -356,7 +376,8 @@ const NATO_UNIT_STATS: Dictionary = {
 		"accuracy": 0.54, "range": 14, "movement": 5,
 		"vision": 4, "size": Vector2i(2, 1),
 		"class": "artillery", "cost": 3,
-		"area_effect": 2
+		"area_effect": 2,
+		"move_speed": 0.9,
 	},
 	UnitBase.UnitType.M113_APC: {
 		"name": "M113 装甲输送车", "health": 100, "ammo": 80,
@@ -364,14 +385,16 @@ const NATO_UNIT_STATS: Dictionary = {
 		"accuracy": 0.68, "range": 5, "movement": 7,
 		"vision": 5, "size": Vector2i(1, 2),
 		"class": "apc", "cost": 2,
-		"can_transport": true, "transport_capacity": 1
+		"can_transport": true, "transport_capacity": 1,
+		"move_speed": 1.2,
 	},
 	UnitBase.UnitType.NATO_RECON_SECTION: {
 		"name": "北约侦察分队", "health": 60, "ammo": 80,
 		"attack": 16, "armor": 6, "penetration": 3,
 		"accuracy": 0.68, "range": 5, "movement": 7,
 		"vision": 9, "recon_bonus": 3, "size": Vector2i(1, 1),
-		"class": "recon", "cost": 2
+		"class": "recon", "cost": 2,
+		"move_speed": 1.0,
 	},
 }
 
@@ -382,14 +405,16 @@ const NEUTRAL_UNIT_STATS: Dictionary = {
 		"attack": 0, "armor": 0, "penetration": 0,
 		"accuracy": 0.0, "range": 0, "movement": 4,
 		"vision": 3, "size": Vector2i(1, 1),
-		"class": "civilian", "cost": 0
+		"class": "civilian", "cost": 0,
+		"move_speed": 0.6,
 	},
 	UnitBase.UnitType.UNKNOWN_CONTACT: {
 		"name": "未知接触", "health": 50, "ammo": 50,
 		"attack": 10, "armor": 10, "penetration": 5,
 		"accuracy": 0.50, "range": 4, "movement": 5,
 		"vision": 4, "size": Vector2i(1, 1),
-		"class": "unknown", "cost": 0
+		"class": "unknown", "cost": 0,
+		"move_speed": 1.0,
 	},
 }
 

@@ -23,7 +23,7 @@ const ALL_CARDS: Array[Dictionary] = [
 		"name": "盲射弹幕",
 		"cost": 2,
 		"cooldown": 0,
-		"description": "对3×3范围进行无差别射击，无视视野但可能误伤。",
+		"description": "对3×3范围进行无差别射击，无视视野但可能误伤平民。",
 		"type": "attack",
 		"rarity": "common"
 	},
@@ -32,7 +32,7 @@ const ALL_CARDS: Array[Dictionary] = [
 		"name": "烟雾遮障",
 		"cost": 1,
 		"cooldown": 0,
-		"description": "4×4范围释放烟雾，下回合敌方该范围命中-40%。",
+		"description": "4×4范围释放烟雾，本回合及下回合敌方该范围命中-40%。",
 		"type": "defense",
 		"rarity": "common"
 	},
@@ -59,7 +59,7 @@ const ALL_CARDS: Array[Dictionary] = [
 		"name": "电磁反制",
 		"cost": 2,
 		"cooldown": 0,
-		"description": "本回合EMI上升+10%，持续2回合。",
+		"description": "本回合EMI下降10%，持续2回合，保护己方电子设备。",
 		"type": "special",
 		"rarity": "uncommon"
 	},

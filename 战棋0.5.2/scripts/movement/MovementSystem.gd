@@ -48,7 +48,7 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 			result["blocked"] = true
 			print("[MovementSystem] %s 移动中止：目标格不存在 (%d,%d)" % [unit.unit_name, col, row])
 			break
-		if not cell.is_passable_for(is_armored):
+		if not cell.is_passable_for(is_armored, unit):
 			result["blocked"] = true
 			print("[MovementSystem] %s 移动中止：地块不可通行 (%d,%d)" % [unit.unit_name, col, row])
 			break
@@ -90,6 +90,8 @@ func execute_move(unit_id: int, path: Array) -> Dictionary:
 				remaining_mp = 0.0
 				if not unit.is_alive:
 					CombatSystem.unit_destroyed.emit(unit.unit_id, -1)
+				# 修复批B: 触雷分支统一 break — 幸存者不再落入下方常规移动
+				# 重复执行 set_grid_position/unit_step/steps_completed（同格二次处理）
 				break
 
 		var prev_col: int = unit.grid_col
@@ -121,32 +123,6 @@ func _animate_step(unit: UnitBase, col: int, row: int) -> void:
 	# 逻辑位置已经更新；实际图标动画由 UnitRenderer 响应
 	# unit_step_animation_requested 完成。这里保留等待，维持逐格演绎节奏。
 	await unit.get_tree().create_timer(BASE_MOVE_SPEED).timeout
-
-
-func validate_path(unit_id: int, path: Array) -> bool:
-	var unit = _get_unit_by_id(unit_id)
-	if not unit:
-		return false
-	if path.is_empty():
-		return true
-
-	var cc = unit.grid_col
-	var cr = unit.grid_row
-	var total = 0.0
-	var is_armored = TilePathfinding.is_armored(unit)
-
-	for step in path:
-		var dist = GridManager.manhattan_distance(cc, cr, step.x, step.y)
-		if dist != 1:
-			return false
-		var cell = GridManager.get_cell(step.x, step.y)
-		if not cell or not cell.is_passable_for(is_armored):
-			return false
-		total += cell.get_move_cost()
-		cc = step.x
-		cr = step.y
-
-	return total <= unit.get_effective_movement()
 
 
 ## ==================== 雷区 ====================

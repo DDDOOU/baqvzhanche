@@ -73,6 +73,10 @@ func start_planning_phase() -> void:
 	# 回合开始：手牌多弃少补到7张
 	CardSystem.adjust_hand_to(CardSystem.STARTING_HAND_SIZE)
 
+	# 修复批B: 每回合补充指挥点（不结转, 用不完作废）
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
+	CardSystem.command_points_changed.emit(CardSystem.command_points, CardSystem.MAX_COMMAND_POINTS)
+
 	# AI 开始规划（异步，不阻塞玩家）
 	NATOAI.plan_turn(current_turn)
 
@@ -99,6 +103,11 @@ func submit_order(unit_id: int, order: Dictionary, is_player: bool = true) -> bo
 	"""提交一个单位的指令"""
 	if orders_locked:
 		print("[TurnManager] 指令已锁定，无法提交")
+		return false
+
+	# 无线电静默期间己方无法使用任何指令（卡牌代价, 修复批B: 描述实现）
+	if is_player and CardSystem.radio_silence_active:
+		print("[TurnManager] 无线电静默中，己方无法下达指令")
 		return false
 
 	# 命令必须拥有独立数据。UI随后会清理待确认路径，如果保存同一个Array引用，
@@ -224,19 +233,56 @@ func _execute_unit_action(unit: UnitBase) -> void:
 
 
 func _execute_special_order(unit_id: int, order: Dictionary, is_player: bool) -> void:
-	"""执行特殊指令（工兵布雷/排雷/架桥等）"""
+	"""执行特殊指令（工兵布雷/排雷/架桥/炸桥等）"""
 	var special = order.get("special_type", "")
+	var unit := _get_unit_by_id(unit_id)
+	if unit == null or not unit.is_alive:
+		return
+	var tc := int(order.get("target_col", unit.grid_col))
+	var tr := int(order.get("target_row", unit.grid_row))
 	match special:
 		"lay_mines":
-			pass  # 工兵布雷
+			# 修复批B: 工兵布雷实装（can_lay_mines 校验）
+			if unit.can_lay_mines:
+				MovementSystem.lay_mines(tc, tr)
+				BattleLog.add_log("[工兵] %s 在 (%d,%d) 布设地雷" % [unit.unit_name, tc + 1, tr + 1], Color(0.8, 0.6, 0.2))
 		"clear_mines":
-			pass  # 工兵排雷
+			# 修复批B: 工兵排雷实装 — 清除目标格地雷
+			if unit.can_clear_mines:
+				var mine_pos := Vector2i(tc, tr)
+				if mine_pos in MovementSystem.mine_cells:
+					MovementSystem.mine_cells.erase(mine_pos)
+					BattleLog.add_log("[工兵] %s 排除了 (%d,%d) 的地雷" % [unit.unit_name, tc + 1, tr + 1], Color(0.55, 0.9, 0.55))
 		"repair_bridge":
-			pass  # 修复桥梁
+			# 修复批B: 工兵架桥实装 — 恢复被炸毁的桥梁格
+			if unit.can_repair_bridge:
+				var cell = GridManager.get_cell(tc, tr)
+				if cell and cell.is_destroyed and cell.terrain == GridManager.TerrainType.BRIDGE:
+					cell.is_destroyed = false
+					BattleLog.add_log("[工兵] %s 修复了桥梁 (%d,%d)" % [unit.unit_name, tc + 1, tr + 1], Color(0.55, 0.9, 0.55))
+		"destroy_bridge":
+			# 修复批B: 工兵炸桥实装 — can_destroy_bridge 单位摧毁桥梁格（不可通行）
+			if unit.can_destroy_bridge:
+				var cell = GridManager.get_cell(tc, tr)
+				if cell and not cell.is_destroyed and cell.terrain == GridManager.TerrainType.BRIDGE:
+					cell.is_destroyed = true
+					BattleLog.add_log("[工兵] %s 炸毁了桥梁 (%d,%d) — 敌军无法通过" % [unit.unit_name, tc + 1, tr + 1], Color(1.0, 0.5, 0.2))
 		"recon":
 			pass  # 侦察行动
 		"resupply":
-			pass  # 补给
+			pass  # 补给（回合结算自动补弹已覆盖）
+		"mount":
+			# 修复批B: 步兵搭载（can_transport/transport_capacity 字段消费）
+			var carrier := _get_unit_by_id(int(order.get("target_unit_id", -1)))
+			if carrier:
+				if carrier.mount_passenger(unit):
+					BattleLog.add_log("[搭载] %s 进入 %s" % [unit.unit_name, carrier.unit_name], Color(0.6, 0.9, 0.6))
+				else:
+					BattleLog.add_log("[搭载] 失败：%s 无法搭载 %s" % [carrier.unit_name, unit.unit_name], Color(0.9, 0.5, 0.4))
+		"unmount":
+			var disembarked := unit.unmount_passenger()
+			if disembarked:
+				BattleLog.add_log("[卸载] %s 离开载具" % disembarked.unit_name, Color(0.6, 0.9, 0.6))
 
 
 func _get_unit_by_id(unit_id: int) -> UnitBase:
@@ -260,14 +306,48 @@ func resolve_turn() -> void:
 	# 3. 更新EMI
 	EMISystem.tick_turn(current_turn)
 
-	# 4. 触发回合结束事件
+	# 4. 弹药补给（修复批B: 原无补给机制, 单位打完即废。
+	# 指挥中心 command_radius 范围内单位全额补弹, 其余单位恢复 50%）
+	_apply_ammo_resupply()
+
+	# 5. 触发回合结束事件
 	_trigger_turn_events("turn_end")
 
-	# 5. 移除过期效果
+	# 6. 移除过期效果
 	_cleanup_expired_effects()
 
 	turn_resolved.emit(current_turn)
 	print("[TurnManager] 第 %d 回合结算完成" % current_turn)
+
+
+func _apply_ammo_resupply() -> void:
+	"""回合结束弹药补给: 指挥中心半径内全额, 其余半额。"""
+	var wp_cmd: UnitBase = null
+	var nato_cmd: UnitBase = null
+	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
+		if not unit.is_alive:
+			continue
+		if unit.is_command:
+			if unit.faction == UnitBase.Faction.WARSAW_PACT:
+				wp_cmd = unit
+			elif unit.faction == UnitBase.Faction.NATO:
+				nato_cmd = unit
+
+	var resupplied := 0
+	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
+		if not unit.is_alive or unit.faction == UnitBase.Faction.NEUTRAL:
+			continue
+		if unit.current_ammo >= unit.max_ammo:
+			continue
+		var in_command_radius := false
+		var cmd: UnitBase = wp_cmd if unit.faction == UnitBase.Faction.WARSAW_PACT else nato_cmd
+		if cmd and GridManager.manhattan_distance(unit.grid_col, unit.grid_row,
+				cmd.grid_col, cmd.grid_row) <= maxi(2, cmd.command_radius):
+			in_command_radius = true
+		unit.resupply(1.0 if in_command_radius else 0.5)
+		resupplied += 1
+	if resupplied > 0:
+		print("[TurnManager] 弹药补给: %d 个单位 (指挥中心范围内全额)" % resupplied)
 
 
 func advance_turn() -> void:

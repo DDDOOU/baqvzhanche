@@ -24,6 +24,7 @@ var confirm_move_button: Button
 var cancel_move_button: Button
 var loan_button: Button
 var initiative_bar: InitiativeBar
+var battle_log_ui: BattleLogUI
 var pause_overlay: PauseMenu
 var selected_unit: UnitBase = null
 var pending_move_unit: UnitBase = null
@@ -33,6 +34,7 @@ var game_over_active: bool = false
 var game_over_panel: CanvasLayer = null
 var briefing_panel: CanvasLayer = null   # 任务简报浮窗（LEVEL_INTRO）
 var tutorial: Node = null                # 教学引导（第1关新手教程）
+var radio_ui: Node = null                # 无线电对话浮窗（修复: UI/交互最后缺口）
 var is_paused: bool = false
 var is_card_area_flash_active: bool = false
 var building_by_cell: Dictionary = {}
@@ -389,7 +391,7 @@ func _setup_ui() -> void:
 	_create_victory_progress_panel(hud)
 	_create_pause_overlay()
 
-	var battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
+	battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
 	hud.add_child(battle_log_ui)
 
 
@@ -664,6 +666,13 @@ func _get_card_effect_cells(card_id: String, center: Vector2i) -> Array:
 			return _get_square_cells(center, 2)
 		"smoke_screen":
 			return _get_square_cells(center, 4)
+		"sapper_mines":
+			# 工兵布雷 1×2：目标格 + 右侧格（与实际布雷逻辑一致）
+			var cells: Array = [center]
+			var right := Vector2i(center.x + 1, center.y)
+			if GridManager.is_valid_cell(right.x, right.y):
+				cells.append(right)
+			return cells
 		_:
 			return [center]
 
@@ -810,6 +819,12 @@ func _on_level_started(level_id: int) -> void:
 		tut.setup()
 		tutorial = tut
 
+	# 无线电对话浮窗（UI/交互最后缺口 — 全关可用, 事件驱动）
+	if radio_ui == null:
+		radio_ui = (load("res://scripts/ui/RadioDialogueUI.gd") as GDScript).new()
+		radio_ui.name = "RadioDialogueUI"
+		add_child(radio_ui)
+
 	if not String(ld.briefing).is_empty():
 		BattleLog.add_log("任务简报：%s" % ld.briefing, Color(0.85, 0.88, 1.0))
 	if not String(ld.intel_a).is_empty():
@@ -877,6 +892,21 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 		"reserve_ready":
 			if CardSystem.grant_card("reserve_deployment"):
 				BattleLog.add_log("华约预备队已就绪：“预备队投入”加入手牌。", Color(0.3, 1.0, 0.45))
+			# 修复批B: 消费 LevelDatabase 的 wp_reserve_units 死数据 —
+			# 事件带 spawn_reserves 标志时, 把本回合到期的预备队单位生成到增援点
+			if data.get("spawn_reserves", false):
+				var ld := LevelDatabase.get_level(GameManager.current_level_id)
+				if ld and not ld.wp_reserve_units.is_empty():
+					var spawned := 0
+					for reserve in ld.wp_reserve_units:
+						if int(reserve.get("turn", 1)) <= TurnManager.current_turn:
+							var unit := _spawn_reinforcement(
+								int(reserve.get("type", UnitBase.UnitType.INFANTRY_SQUAD)),
+								UnitBase.Faction.WARSAW_PACT)
+							if unit:
+								spawned += 1
+					if spawned > 0:
+						BattleLog.add_log("华约预备队 %d 支单位抵达战场。" % spawned, Color(0.3, 1.0, 0.45))
 		"refugee_convoy":
 			_spawn_unit_near(UnitBase.UnitType.CIVILIAN_CONVOY, UnitBase.Faction.NEUTRAL, Vector2i(11, 9))
 		"flood_preview":
@@ -908,6 +938,12 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 			_spawn_unit_near(UnitBase.UnitType.UNKNOWN_CONTACT, UnitBase.Faction.NEUTRAL, Vector2i(10, 9))
 		"artillery_ready":
 			CardSystem.draw_card(1)
+		"radio_dialogue":
+			# 无线电对话事件: data 里带 speaker/text（UI/交互最后缺口实装）
+			if radio_ui:
+				radio_ui.show_dialogue(
+					String(data.get("speaker", "指挥部")),
+					String(data.get("text", description)))
 		_:
 			if event_id.begins_with("emi_rise"):
 				EMISystem.change_base_intensity(float(data.get("emi_delta", 0.05)))
@@ -957,6 +993,11 @@ func _input(event: InputEvent) -> void:
 	if game_over_active:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
+		# 无线电对话: 任意按键跳过/关闭（打字中显全文, 已完整关闭）
+		if radio_ui and radio_ui.is_showing():
+			radio_ui.skip_or_dismiss()
+			get_viewport().set_input_as_handled()
+			return
 		_handle_key_input(event)
 		return
 	# 简报是顶层 GUI；打开时把鼠标事件留给按钮，避免战场输入提前吞掉点击。
@@ -1161,29 +1202,30 @@ func _handle_key_input(event: InputEventKey) -> void:
 	if is_paused:
 		get_viewport().set_input_as_handled()
 		return
-	match event.keycode:
-		KEY_TAB:
-			_set_card_panel_open(not card_ui.is_panel_open)
+	# 修复批B: 统一输入映射 — 配置动作统一消费（plan_cancel/plan_confirm/toggle_card_panel）
+	# Tab/Enter/Escape 不再走 keycode match, 避免双处理
+	if event.is_action_pressed("plan_cancel"):
+		if pending_move_unit:
+			_cancel_pending_move()
+		selected_unit = null
+		tile_grid.clear_highlights()
+		unit_renderer.deselect_unit()
+		card_ui.selected_card_index = -1
+		card_ui.queue_redraw()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("plan_confirm"):
+		if pending_move_unit:
+			_on_confirm_move_pressed()
 			get_viewport().set_input_as_handled()
-		KEY_ESCAPE:
-			if pending_move_unit:
-				_cancel_pending_move()
-			selected_unit = null
-			tile_grid.clear_highlights()
-			unit_renderer.deselect_unit()
-			card_ui.selected_card_index = -1
-			card_ui.queue_redraw()
+		elif GameManager.current_state == GameManager.GameState.PLANNING_PHASE:
+			_on_phase_skip_pressed()
 			get_viewport().set_input_as_handled()
-		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-			if pending_move_unit:
-				_on_confirm_move_pressed()
-				get_viewport().set_input_as_handled()
-			elif GameManager.current_state == GameManager.GameState.PLANNING_PHASE:
-				_on_phase_skip_pressed()
-				get_viewport().set_input_as_handled()
-			elif GameManager.current_state == GameManager.GameState.EXECUTION_PHASE:
-				_on_phase_skip_pressed()
-				get_viewport().set_input_as_handled()
+		elif GameManager.current_state == GameManager.GameState.EXECUTION_PHASE:
+			_on_phase_skip_pressed()
+			get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("toggle_card_panel"):
+		_set_card_panel_open(not card_ui.is_panel_open)
+		get_viewport().set_input_as_handled()
 
 
 func _toggle_fullscreen() -> void:
@@ -1213,7 +1255,8 @@ func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 
 func _is_pointer_over_interface(pos: Vector2) -> bool:
 	return _is_pointer_over_button(pos) or _is_pointer_over_card_panel(pos) \
-		or (initiative_bar != null and initiative_bar.contains_screen_point(pos))
+		or (initiative_bar != null and initiative_bar.contains_screen_point(pos)) \
+		or (battle_log_ui != null and battle_log_ui.get_panel_rect().has_point(pos))
 
 
 func _focus_camera_on_unit(unit_id: int) -> void:
@@ -1357,7 +1400,7 @@ func _on_right_click(pos: Vector2) -> void:
 	if pending_move_unit:
 		_cancel_pending_move()
 		return
-	# 鍚﹀垯鍙栨秷鎵€鏈夐€夋嫨
+	# 否则取消所有选择
 	selected_unit = null
 	tile_grid.clear_highlights()
 	tile_grid.clear_card_highlight()
