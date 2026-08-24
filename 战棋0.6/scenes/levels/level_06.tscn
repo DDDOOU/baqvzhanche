@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="Script" path="res://scripts/levels/ProceduralLevelBuilder.gd" id="1"]
+[ext_resource type="TileSet" uid="uid://c2gk8cbvtx2b7" path="res://resources/tilesets/isometric_terrain.tres" id="2"]
+[node name="Level06_BrokenBridge" type="Node2D"]
+script = ExtResource("1")
+map_theme = 3
+variant_seed = 1992
+river_column = 9
+bridge_rows = Array[int]([6, 8])
+road_rows = Array[int]([6])
+[node name="Terrain（地块）" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+tile_set = ExtResource("2")
+y_sort_origin = 8

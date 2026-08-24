@@ -1,0 +1,736 @@
+{
+  "schema_version": 2,
+  "frame_size": [
+    32,
+    32
+  ],
+  "directions": 4,
+  "frames_per_action": 4,
+  "units": {
+    "INFANTRY_SQUAD": {
+      "move_path": "res://assets/units/animated/all_units_v2/infantry_squad_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/infantry_squad_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "MOTOR_RIFLE": {
+      "move_path": "res://assets/units/animated/all_units_v2/motor_rifle_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/motor_rifle_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "BMP2_IFV": {
+      "move_path": "res://assets/units/animated/all_units_v2/bmp2_ifv_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/bmp2_ifv_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_autocannon_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "BM21_ROCKET": {
+      "move_path": "res://assets/units/animated/all_units_v2/bm21_rocket_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/bm21_rocket_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_rocket_salvo_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "SA13_AA": {
+      "move_path": "res://assets/units/animated/all_units_v2/sa13_aa_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/sa13_aa_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_missile_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "RECON_PLATOON": {
+      "move_path": "res://assets/units/animated/all_units_v2/recon_platoon_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/recon_platoon_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "SAPPERS": {
+      "move_path": "res://assets/units/animated/all_units_v2/sappers_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/sappers_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "COMMAND_ELEMENT": {
+      "move_path": "res://assets/units/animated/all_units_v2/command_element_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/command_element_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "RESERVE": {
+      "move_path": "res://assets/units/animated/all_units_v2/reserve_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/reserve_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "ATGM_TEAM": {
+      "move_path": "res://assets/units/animated/all_units_v2/atgm_team_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/atgm_team_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_missile_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "BRDM2_RECON": {
+      "move_path": "res://assets/units/animated/all_units_v2/brdm2_recon_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/brdm2_recon_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "ZSU23_AA": {
+      "move_path": "res://assets/units/animated/all_units_v2/zsu23_aa_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/zsu23_aa_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_autocannon_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "GVOZDIKA_ARTILLERY": {
+      "move_path": "res://assets/units/animated/all_units_v2/gvozdika_artillery_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/gvozdika_artillery_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_artillery_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "M1A1_TANK": {
+      "move_path": "res://assets/units/animated/all_units_v2/m1a1_tank_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/m1a1_tank_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_heavy_cannon_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "M2_IFV": {
+      "move_path": "res://assets/units/animated/all_units_v2/m2_ifv_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/m2_ifv_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_autocannon_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "MECH_INFANTRY": {
+      "move_path": "res://assets/units/animated/all_units_v2/mech_infantry_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/mech_infantry_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "AH64_HELICOPTER": {
+      "move_path": "res://assets/units/animated/all_units_v2/ah64_helicopter_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/ah64_helicopter_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_rocket_salvo_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "NATO_ENGINEER": {
+      "move_path": "res://assets/units/animated/all_units_v2/nato_engineer_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/nato_engineer_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "M901_ITV": {
+      "move_path": "res://assets/units/animated/all_units_v2/m901_itv_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/m901_itv_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_missile_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "M109_ARTILLERY": {
+      "move_path": "res://assets/units/animated/all_units_v2/m109_artillery_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/m109_artillery_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_artillery_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "M113_APC": {
+      "move_path": "res://assets/units/animated/all_units_v2/m113_apc_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/m113_apc_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "NATO_RECON_SECTION": {
+      "move_path": "res://assets/units/animated/all_units_v2/nato_recon_section_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/nato_recon_section_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "T72B_TANK": {
+      "move_path": "res://assets/units/animated/all_units_v2/t72b_tank_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/t72b_tank_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_heavy_cannon_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "CIVILIAN_CONVOY": {
+      "move_path": "res://assets/units/animated/all_units_v2/civilian_convoy_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/civilian_convoy_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    },
+    "UNKNOWN_CONTACT": {
+      "move_path": "res://assets/units/animated/all_units_v2/unknown_contact_move_4dir_4f.png",
+      "attack_path": "res://assets/units/animated/all_units_v2/unknown_contact_attack_4dir_4f.png",
+      "effect_path": "res://assets/effects/unit_attacks_v2/fx_small_arms_4f.png",
+      "ground_anchor": [
+        16,
+        29
+      ],
+      "native_world_scale": 2.0,
+      "attack_duration": 0.32,
+      "muzzle_offsets": [
+        [
+          14,
+          -7
+        ],
+        [
+          -14,
+          -7
+        ],
+        [
+          -14,
+          -21
+        ],
+        [
+          14,
+          -21
+        ]
+      ]
+    }
+  }
+}
