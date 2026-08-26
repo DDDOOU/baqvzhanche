@@ -378,11 +378,13 @@ func _draw_unit(unit: UnitBase, pos: Vector2) -> void:
 
 	# 选中高亮
 	if unit == selected_unit:
-		draw_circle(pos, radius + max(2.0, ts * 0.06), Color.YELLOW, false, max(1.5, ts * 0.05))
+		var selection_radius: float = radius + maxf(3.0, ts * 0.08)
+		draw_circle(pos, selection_radius, Color(0.02, 0.02, 0.02, 0.9), false, max(3.0, ts * 0.10))
+		draw_circle(pos, selection_radius, Color(1.0, 0.88, 0.18), false, max(2.0, ts * 0.07))
 
 	# 悬停可选中高亮（鼠标放上且可选中时底部圈亮起; 已选中单位不叠加）
 	if unit == hovered_unit and unit != selected_unit:
-		draw_circle(pos, radius + max(2.0, ts * 0.06), Color(1.0, 0.97, 0.65, 0.95), false, max(1.0, ts * 0.03))
+		draw_circle(pos, radius + max(3.0, ts * 0.08), Color(1.0, 0.97, 0.65, 0.98), false, max(2.0, ts * 0.05))
 
 
 func is_unit_selectable_now(unit: UnitBase) -> bool:
@@ -544,14 +546,15 @@ func _load_cached_texture(path: String) -> Texture2D:
 
 func _draw_health_bar(pos: Vector2, unit: UnitBase, ts: float, radius: float) -> void:
 	"""绘制单位生命条"""
-	var bar_width = ts * 0.72
-	var bar_height = max(3.0, ts * 0.07)
+	var bar_width = maxf(18.0, ts * 0.76)
+	var bar_height = maxf(4.0, ts * 0.10)
 	# 紧贴圆下方，留小间距
-	var bar_y_offset = radius + max(3.0, ts * 0.08)
+	var bar_y_offset = radius + max(4.0, ts * 0.10)
 	var health_ratio = unit.current_health / unit.max_health
 
-	var bg_rect = Rect2(pos.x - bar_width/2, pos.y + bar_y_offset, bar_width, bar_height)
-	draw_rect(bg_rect, Color.BLACK, true)
+	var bg_rect = Rect2(pos.x - bar_width/2 - 1.0, pos.y + bar_y_offset - 1.0,
+		bar_width + 2.0, bar_height + 2.0)
+	draw_rect(bg_rect, Color(0.01, 0.01, 0.01, 0.95), true)
 
 	if health_ratio > 0.5:
 		draw_rect(Rect2(pos.x - bar_width/2, pos.y + bar_y_offset,
@@ -568,7 +571,7 @@ func _draw_health_bar(pos: Vector2, unit: UnitBase, ts: float, radius: float) ->
 	var morale_colors = [Color.RED, Color.ORANGE, Color.WHITE, Color.GOLD]
 	var morale_color = morale_colors[morale_tier]
 	draw_circle(pos + Vector2(0, bar_y_offset + bar_height + max(3.0, ts * 0.06)),
-		max(2.0, ts * 0.06), morale_color)
+		maxf(3.0, ts * 0.08), morale_color)
 
 
 func _draw_facing_arrow(pos: Vector2, unit: UnitBase, ts: float) -> void:

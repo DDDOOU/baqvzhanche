@@ -8,7 +8,7 @@
 class_name BattleLogUI
 extends Control
 
-const PANEL_WIDTH: float = 300.0
+const PANEL_WIDTH: float = 320.0
 const PANEL_HEIGHT: float = 260.0
 const PANEL_MARGIN: float = 8.0
 
@@ -28,8 +28,8 @@ func _ready() -> void:
 
 func _layout() -> void:
 	var vp = get_viewport_rect().size
-	# 面板尺寸自适应窗口：宽取视口 24%（最大 300），高取视口 40%（最大 260）
-	var panel_w = minf(PANEL_WIDTH, vp.x * 0.24)
+	# 面板尺寸自适应窗口：宽取视口 26%（最大 320），高取视口 40%（最大 260）
+	var panel_w = minf(PANEL_WIDTH, vp.x * 0.26)
 	var panel_h = minf(PANEL_HEIGHT, vp.y * 0.40)
 	var panel_x = vp.x - panel_w - PANEL_MARGIN
 	var panel_y = PANEL_MARGIN + 100.0
@@ -40,6 +40,7 @@ func _layout() -> void:
 		log_label.scroll_following = true
 		log_label.selection_enabled = false
 		log_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		log_label.add_theme_font_size_override("normal_font_size", 15)
 		log_label.add_theme_stylebox_override("normal", _make_bg_stylebox())
 		add_child(log_label)
 

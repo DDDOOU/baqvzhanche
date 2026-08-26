@@ -37,7 +37,7 @@ func _build_interface() -> void:
 	order_label = Label.new()
 	order_label.text = "行动顺序　高先手 → 低先手"
 	order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	order_label.add_theme_font_size_override("font_size", 13)
+	order_label.add_theme_font_size_override("font_size", 14)
 	order_label.add_theme_color_override("font_color", Color(0.94, 0.91, 0.8))
 	column.add_child(order_label)
 
@@ -137,7 +137,7 @@ func contains_screen_point(screen_position: Vector2) -> bool:
 
 func _make_unit_card(unit: UnitBase, order_number: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(88, 48)
+	button.custom_minimum_size = Vector2(96, 52)
 	button.text = "%02d　先手%d\n%s" % [order_number, unit.initiative, _short_name(unit.unit_name)]
 	button.set_meta("base_text", button.text)
 	button.clip_text = true
@@ -147,7 +147,7 @@ func _make_unit_card(unit: UnitBase, order_number: int) -> Button:
 		unit.initiative,
 		unit.move_speed,
 	]
-	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_font_size_override("font_size", 13)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.pressed.connect(func() -> void:
 		set_active_unit(unit.unit_id)
