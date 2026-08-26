@@ -1,0 +1,16 @@
+{
+  "scene": "res://scenes/levels/level_01.tscn",
+  "width": 40,
+  "height": 45,
+  "base": "tile.grass",
+  "seed": 1987,
+  "auto_edges": true,
+  "operations": [
+    { "command": "map.polygon", "terrain": "tile.rock", "points": [[0, 0], [18, 0], [12, 8], [0, 12]] },
+    { "command": "map.path", "terrain": "tile.water", "points": [[0, 37], [10, 35], [21, 39], [39, 34]], "width": 3 },
+    { "command": "map.path", "terrain": "tile.road", "points": [[0, 22], [14, 21], [26, 23], [39, 20]], "width": 2 },
+    { "command": "map.ellipse", "terrain": "tile.forest", "center": [11, 16], "radius": [7, 5] },
+    { "command": "map.scatter", "terrain": "tile.brush", "rect": [22, 6, 13, 11], "density": 0.32 },
+    { "command": "map.rect", "terrain": "tile.soil", "from": [2, 4], "to": [7, 9] }
+  ]
+}
