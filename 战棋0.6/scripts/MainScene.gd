@@ -59,6 +59,15 @@ const CAMERA_MIN_ZOOM: float = 0.05
 const CAMERA_MAX_ZOOM: float = 2.0
 const CAMERA_ZOOM_STEP: float = 1.12
 const MAP_DRAG_THRESHOLD: float = 4.0
+# Large campaign maps must remain readable at first glance. Players can still
+# zoom out to inspect the complete map with the existing wheel control.
+const INITIAL_READABILITY_ZOOM: float = 0.50
+
+
+func _exit_tree() -> void:
+	# 退出时停止所有音效并释放流缓存（换场景/测试结束, 避免资源未释放报告）
+	if SoundManager:
+		SoundManager.stop_all()
 
 
 func _ready() -> void:
@@ -236,7 +245,8 @@ func _fit_camera_to_map() -> void:
 	# 为右侧战报和底部卡牌栏预留空间
 	var avail_w = maxf(320.0, vp.x - 340.0)
 	var avail_h = maxf(240.0, vp.y - 260.0)
-	base_camera_zoom = minf(min(avail_w / map_w, avail_h / map_h), 1.0)
+	var fit_zoom := minf(min(avail_w / map_w, avail_h / map_h), 1.0)
+	base_camera_zoom = maxf(fit_zoom, INITIAL_READABILITY_ZOOM)
 	var ox = 20.0 + (avail_w - map_w * base_camera_zoom) / 2.0
 	var oy = 105.0 + (avail_h - map_h * base_camera_zoom) / 2.0
 	base_camera_offset = Vector2(ox, oy)
@@ -332,7 +342,7 @@ func _setup_ui() -> void:
 
 	action_hint_label = _make_label(Vector2(10, 272), Color(0.92, 0.9, 0.7),
 		"操作：点击己方单位 → 点击蓝格移动 / 点击红色敌军攻击；Tab 使用卡牌；Enter 结束计划")
-	action_hint_label.add_theme_font_size_override("font_size", 13)
+	action_hint_label.add_theme_font_size_override("font_size", 15)
 	hud.add_child(action_hint_label)
 
 	finish_planning_button = Button.new()
@@ -410,7 +420,7 @@ func _create_victory_progress_panel(hud: CanvasLayer) -> void:
 	victory_progress_label.selection_enabled = false
 	victory_progress_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	victory_progress_label.add_theme_stylebox_override("normal", _make_translucent_panel_stylebox())
-	victory_progress_label.add_theme_font_size_override("normal_font_size", 12)
+	victory_progress_label.add_theme_font_size_override("normal_font_size", 14)
 	hud.add_child(victory_progress_label)
 	get_viewport().size_changed.connect(_layout_victory_progress_panel)
 	_layout_victory_progress_panel()
@@ -455,7 +465,7 @@ func _create_hover_info_panel(hud: CanvasLayer) -> void:
 	hover_info_label = Label.new()
 	hover_info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hover_info_label.add_theme_color_override("font_color", Color.WHITE)
-	hover_info_label.add_theme_font_size_override("font_size", 14)
+	hover_info_label.add_theme_font_size_override("font_size", 15)
 	hover_info_panel.add_child(hover_info_label)
 
 
@@ -721,7 +731,7 @@ func _update_victory_progress() -> void:
 	var vp = VictoryManager.get_vp_control()
 	var counts := _count_alive_units_local()
 	var vp_total := GridManager.vp_cells.size()
-	victory_progress_label.text = "[font_size=12][color=#e8e4bf][b]胜利条件[/b][/color]  第%d回合结束守住至少2个VP\n[color=#d8d8d8]进度[/color]  第%d/%d回合   VP 我方%d/%d 敌方%d 中立%d\n[color=#d8d8d8]单位[/color]  我方%d 敌方%d    [color=#6ab7ff]蓝[/color]=我方建筑 [color=#ff766c]红[/color]=敌方建筑[/font_size]" % [
+	victory_progress_label.text = "[font_size=14][color=#e8e4bf][b]胜利条件[/b][/color]  第%d回合结束守住至少2个VP\n[color=#d8d8d8]进度[/color]  第%d/%d回合   VP 我方%d/%d 敌方%d 中立%d\n[color=#d8d8d8]单位[/color]  我方%d 敌方%d    [color=#6ab7ff]蓝[/color]=我方建筑 [color=#ff766c]红[/color]=敌方建筑[/font_size]" % [
 		VictoryManager.max_turns, TurnManager.current_turn, VictoryManager.max_turns,
 		vp.wp, vp_total, vp.nato, vp.neutral,
 		counts.wp, counts.nato]
@@ -843,6 +853,28 @@ func _on_level_started(level_id: int) -> void:
 
 	unit_renderer.queue_redraw()
 	initiative_bar.refresh_units()
+	call_deferred("_focus_camera_on_initial_player_deployment")
+
+
+func _focus_camera_on_initial_player_deployment() -> void:
+	"""Start large maps near the player's force instead of shrinking units to fit all terrain."""
+	var focus_unit: UnitBase = null
+	for candidate in get_tree().get_nodes_in_group("units"):
+		if not (candidate is UnitBase) or not candidate.is_alive \
+				or candidate.faction != UnitBase.Faction.WARSAW_PACT:
+			continue
+		if focus_unit == null or candidate.is_command:
+			focus_unit = candidate
+		if candidate.is_command:
+			break
+	if focus_unit == null:
+		return
+	var viewport_size := get_viewport_rect().size
+	var map_view_center := Vector2(
+		maxf(180.0, (viewport_size.x - 340.0) * 0.5),
+		105.0 + maxf(150.0, (viewport_size.y - 260.0) * 0.5))
+	camera_pan = map_view_center - unit_renderer.get_unit_screen_position(focus_unit)
+	_apply_camera_transform()
 
 
 func _apply_level_start_effects(level_data) -> void:

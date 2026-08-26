@@ -59,7 +59,15 @@ func _on_player_finished(player: AudioStreamPlayer) -> void:
 
 
 func _exit_tree() -> void:
-	## 退出时释放音频流引用，避免 Godot 报 resources still in use
+	for p in _pool:
+		p.stop()
+		p.stream = null
+	_streams.clear()
+
+
+func stop_all() -> void:
+	## 停止所有播放并清空流缓存（场景退出/测试结束时调用,
+	## 避免 AudioServer 持有已播放流导致退出时报资源未释放）
 	for p in _pool:
 		p.stop()
 		p.stream = null
