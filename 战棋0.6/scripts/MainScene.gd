@@ -983,6 +983,9 @@ func _input(event: InputEvent) -> void:
 			# 顶部行动顺序条交给Godot GUI处理，不能被地图拖拽先吞掉。
 			if initiative_bar != null and initiative_bar.contains_screen_point(event.position):
 				return
+			# 教学面板上的点击（如"跳过教学"按钮）交给 GUI 处理
+			if tutorial != null and tutorial.is_pointer_over(event.position):
+				return
 			if _is_pointer_over_button(event.position):
 				return
 			if _is_pointer_over_card_panel(event.position):
@@ -1017,6 +1020,8 @@ func _input(event: InputEvent) -> void:
 
 	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		if _is_pointer_over_button(event.position):
+			return
+		if tutorial != null and tutorial.is_pointer_over(event.position):
 			return
 		_on_right_click(event.position)
 		get_viewport().set_input_as_handled()
@@ -1214,6 +1219,7 @@ func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 
 func _is_pointer_over_interface(pos: Vector2) -> bool:
 	return _is_pointer_over_button(pos) or _is_pointer_over_card_panel(pos) \
+		or (tutorial != null and tutorial.is_pointer_over(pos)) \
 		or (initiative_bar != null and initiative_bar.contains_screen_point(pos))
 
 

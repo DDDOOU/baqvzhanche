@@ -17,6 +17,7 @@ const STEP_TEXTS := {
 
 var _current_step: Step = Step.NONE
 var _layer: CanvasLayer = null
+var _panel: Control = null
 var _label: Label = null
 
 
@@ -36,6 +37,7 @@ func setup() -> void:
 	panel.offset_right = 340
 	panel.offset_top = -96
 	panel.offset_bottom = -16
+	_panel = panel
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.13, 0.92)
 	style.border_width_left = 2
@@ -101,6 +103,13 @@ func notify(event: String) -> void:
 
 func is_active() -> bool:
 	return _current_step != Step.NONE and _current_step != Step.DONE
+
+
+func is_pointer_over(pos: Vector2) -> bool:
+	## 教学面板是否包含屏幕坐标点（MainScene 据此把点击留给 GUI 按钮处理）
+	if _layer == null or not _layer.visible or _panel == null:
+		return false
+	return _panel.get_global_rect().has_point(pos)
 
 
 func _advance(step: Step) -> void:
