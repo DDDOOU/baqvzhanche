@@ -89,6 +89,8 @@ func _process(delta: float) -> void:
 	# 沙盘演绎倒计时
 	elif current_state == GameState.EXECUTION_PHASE:
 		execution_timer -= delta
+		if execution_timer < 0.0:
+			execution_timer = 0.0  # 钳制: 行动未完成等待结算时不显示负值
 		if execution_timer <= 0.0 or (
 				execution_skip_requested and TurnManager.execution_actions_finished
 		):
