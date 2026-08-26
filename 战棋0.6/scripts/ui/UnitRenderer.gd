@@ -101,6 +101,7 @@ const UNIT_SHAPES: Dictionary = {
 
 ## === 状态 ===
 var selected_unit: UnitBase = null
+var hovered_unit: UnitBase = null       # 鼠标悬停且可选中的单位（底部圈高亮）
 var focused_unit: UnitBase = null  # 顶部顺序条点击定位目标，不参与地图操作选择
 var acting_unit: UnitBase = null  # 当前行动槽单位；移动、攻击和待命均在地图上高亮
 var show_health_bars: bool = true
@@ -378,6 +379,47 @@ func _draw_unit(unit: UnitBase, pos: Vector2) -> void:
 	# 选中高亮
 	if unit == selected_unit:
 		draw_circle(pos, radius + max(2.0, ts * 0.06), Color.YELLOW, false, max(1.5, ts * 0.05))
+
+	# 悬停可选中高亮（鼠标放上且可选中时底部圈亮起; 已选中单位不叠加）
+	if unit == hovered_unit and unit != selected_unit:
+		draw_circle(pos, radius + max(2.0, ts * 0.06), Color(1.0, 0.97, 0.65, 0.95), false, max(1.0, ts * 0.03))
+
+
+func is_unit_selectable_now(unit: UnitBase) -> bool:
+	"""单位当前是否可被玩家选中（计划阶段 + 订单未锁定 + 华约存活）"""
+	if unit == null or not unit.is_alive:
+		return false
+	if unit.faction != UnitBase.Faction.WARSAW_PACT:
+		return false
+	if GameManager.current_state != GameManager.GameState.PLANNING_PHASE:
+		return false
+	if TurnManager.orders_locked:
+		return false
+	return true
+
+
+func update_hover(mouse_pos: Vector2) -> void:
+	"""每帧更新悬停可选中单位; hover 变化时才重绘"""
+	var found: UnitBase = null
+	var hit_radius := GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.5
+	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
+		if unit == selected_unit:
+			continue
+		if not is_unit_selectable_now(unit):
+			continue
+		if mouse_pos.distance_to(_get_unit_screen_pos(unit)) < hit_radius:
+			found = unit
+			break
+	if found != hovered_unit:
+		hovered_unit = found
+		queue_redraw()
+
+
+func clear_hover() -> void:
+	"""清除悬停高亮（进入演绎等场景）"""
+	if hovered_unit != null:
+		hovered_unit = null
+		queue_redraw()
 
 
 func _sync_animated_unit_sprite(unit: UnitBase, pos: Vector2, config: Dictionary) -> void:

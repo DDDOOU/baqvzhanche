@@ -474,6 +474,7 @@ func _process(delta: float) -> void:
 		_last_vp_size = vp
 		_fit_camera_to_map()
 	_update_hover_cell()
+	unit_renderer.update_hover(get_viewport().get_mouse_position())
 	_update_building_occlusion()
 
 	if not is_paused:
@@ -1398,6 +1399,16 @@ func _on_state_changed(_old: int, new: int) -> void:
 			print("[MainScene] >>> 演算阶段 <<<")
 			if tutorial:
 				tutorial.notify("execution")
+			# 清理计划阶段残留预览（超时/提前结束时玩家未完成的操作不再显示）
+			_clear_pending_move(true)
+			selected_unit = null
+			unit_renderer.deselect_unit()
+			unit_renderer.clear_hover()
+			if card_ui:
+				card_ui.selected_card_index = -1
+				card_ui.queue_redraw()
+			tile_grid.clear_hover_move_path()
+			tile_grid.clear_card_highlight()
 		GameManager.GameState.VICTORY:
 			SoundManager.play("victory")
 			_show_game_over_panel(UnitBase.Faction.WARSAW_PACT, _get_game_over_reason())
