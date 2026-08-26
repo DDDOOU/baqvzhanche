@@ -3,7 +3,7 @@
 # ==============================================================================
 # 作用：渲染手牌界面，显示卡牌名称、消耗、冷却、效果描述。
 #       交互：左键选牌→点击地图目标使用 / 右键点击卡牌弃牌 / Tab开关面板。
-# Godot 4.7.1 鍏煎
+# Godot 4.7.1 兼容
 # ==============================================================================
 class_name CardUI
 extends Control
@@ -13,7 +13,7 @@ const CARD_WIDTH: float = 160.0
 const CARD_HEIGHT: float = 220.0
 const CARD_SPACING: float = 12.0
 
-## === 棰滆壊閰嶇疆 ===
+## === 颜色配置 ===
 const CARD_COLORS: Dictionary = {
 	"attack":   Color(0.85, 0.30, 0.20, 0.9),   # 攻击卡 — 红色
 	"defense":  Color(0.20, 0.50, 0.85, 0.9),   # 防御卡 — 蓝色
@@ -127,6 +127,33 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 	draw_rect(rect, bg_color, true)
 	draw_rect(rect, Color.WHITE.darkened(0.3), false, 1.0)
 
+	# 卡面贴图（AI 美术素材 — 立绘铺满整卡, 文字遮罩叠加）
+	var art_tex := _get_card_art(card)
+	if art_tex != null:
+		var tex_size := art_tex.get_size()
+		if tex_size.x > 0 and tex_size.y > 0:
+			# cover 模式: 立绘铺满整张卡片, 溢出部分居中裁剪
+			var scale := maxf(rect.size.x / tex_size.x, rect.size.y / tex_size.y)
+			var draw_size := tex_size * scale
+			var draw_pos := rect.position + (rect.size - draw_size) * 0.5
+			var src_rect := Rect2(Vector2.ZERO, tex_size)
+			var dst_rect := Rect2(draw_pos, draw_size)
+			var overlap := dst_rect.intersection(rect)
+			if overlap.size.x > 0 and overlap.size.y > 0:
+				var src_offset := (overlap.position - dst_rect.position) / draw_size
+				var src_size := overlap.size / draw_size
+				var src_region := Rect2(
+					src_rect.position + src_rect.size * src_offset,
+					src_rect.size * src_size)
+				draw_texture_rect_region(art_tex, overlap, src_region, Color.WHITE)
+		# 顶部遮罩条（保证名称可读）
+		var top_bar := Rect2(rect.position, Vector2(rect.size.x, rect.size.y * 0.20))
+		draw_rect(top_bar, Color(0.0, 0.0, 0.0, 0.45), true)
+		# 底部遮罩条（保证描述可读）
+		var bot_bar := Rect2(
+			rect.position + Vector2(0, rect.size.y * 0.70),
+			Vector2(rect.size.x, rect.size.y * 0.30))
+		draw_rect(bot_bar, Color(0.0, 0.0, 0.0, 0.55), true)
 	# 卡牌名称
 	draw_string(ThemeDB.fallback_font,
 		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.12),
@@ -143,10 +170,10 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 		Vector2(rect.position.x + rect.size.x * 0.94, line_y),
 		Color.WHITE.darkened(0.5), 1.0)
 
-	# 鏁堟灉鎻忚堪
+	# 效果描述（底部遮罩条内）
 	var desc_rect := Rect2(
-		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.24),
-		Vector2(rect.size.x * 0.88, rect.size.y * 0.52)
+		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.74),
+		Vector2(rect.size.x * 0.88, rect.size.y * 0.22)
 	)
 	_draw_wrapped_text(desc_rect, str(card.data.get("description", "")),
 		desc_font, Color.WHITE.darkened(0.2))
@@ -225,7 +252,22 @@ func _draw_empty_hand() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.GRAY)
 
 
-## === 浜や簰 ===
+## === 卡面贴图缓存 ===
+var _card_art_cache: Dictionary = {}  # card_id → Texture2D
+
+func _get_card_art(card) -> Texture2D:
+	"""按卡牌 id 加载 AI 生成卡面; 乱码卡用专用碎裂图; 缺失时返回 null 回退纯色。"""
+	var art_id := "scrambled" if card.is_scrambled else String(card.data.get("id", ""))
+	if art_id.is_empty():
+		return null
+	if _card_art_cache.has(art_id):
+		return _card_art_cache[art_id]
+	var tex := load("res://assets/cards/%s.png" % art_id) as Texture2D
+	_card_art_cache[art_id] = tex
+	return tex
+
+
+## === 交互 ===
 func toggle_panel() -> void:
 	is_panel_open = not is_panel_open
 	visible = is_panel_open
