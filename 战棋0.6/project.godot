@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Silent_Reckoning_1987"
 config/description="静默行动1987 - 回合制战术战棋游戏"
-config/version="0.5.0"
+config/version="0.6.0"
 config/tags=PackedStringArray("strategy", "wargame", "hex-grid", "turn-based")
 run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7")
