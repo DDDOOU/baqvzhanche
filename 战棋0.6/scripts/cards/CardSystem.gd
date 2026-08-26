@@ -29,6 +29,11 @@ var discard_pile: Array[CardInstance] = []  # 弃牌堆
 const MAX_HAND_SIZE: int = 6             # 回合结束手牌上限
 const STARTING_HAND_SIZE: int = 7        # 回合开始手牌数量
 
+## === 指挥点（cost 字段资源系统: 出牌消耗, 每回合重置） ===
+const MAX_COMMAND_POINTS: int = 5        # 每回合指挥点上限
+var command_points: int = MAX_COMMAND_POINTS  # 当前可用指挥点
+signal command_points_changed(points: int, max_points: int)
+
 ## === 指挥贷款 ===
 var loan_available: bool = true          # 本关是否可贷款
 var loan_used_this_turn: bool = false
@@ -91,6 +96,8 @@ func initialize_level(level_card_ids: Array) -> void:
 	loan_available = true
 	loan_used_this_turn = false
 	next_turn_card_penalty = 0
+	command_points = MAX_COMMAND_POINTS
+	command_points_changed.emit(command_points, MAX_COMMAND_POINTS)
 
 	# 从数据库加载卡牌
 	for card_id in level_card_ids:
@@ -168,6 +175,11 @@ func use_card(card_index: int, target_col: int, target_row: int) -> bool:
 		print("[CardSystem] 卡牌冷却中: %s (%d回合)" % [card.card_name, card.cooldown])
 		return false
 
+	# 指挥点消耗 — cost 字段真正生效
+	if card.cost > command_points:
+		print("[CardSystem] 指挥点不足: %s 需%d点, 当前%d点" % [card.card_name, card.cost, command_points])
+		return false
+
 	# 乱码卡：随机效果
 	if card.is_scrambled:
 		_execute_scrambled_card_effect(card, target_col, target_row)
@@ -177,6 +189,10 @@ func use_card(card_index: int, target_col: int, target_row: int) -> bool:
 	# 冷却
 	if card.max_cooldown > 0:
 		card.cooldown = card.max_cooldown
+
+	# 扣指挥点
+	command_points -= card.cost
+	command_points_changed.emit(command_points, MAX_COMMAND_POINTS)
 
 	card_used.emit(card.card_id, target_col, target_row)
 
@@ -661,6 +677,7 @@ func serialize() -> Dictionary:
 		"discard": _cards_to_state(discard_pile),
 		"loan_available": loan_available,
 		"next_turn_penalty": next_turn_card_penalty,
+		"command_points": command_points,
 		"radio_silence_active": radio_silence_active,
 		"power_cut_units": power_cut_units
 	}
@@ -675,6 +692,7 @@ func deserialize(data: Dictionary) -> void:
 	discard_pile.clear()
 	loan_available = data.get("loan_available", true)
 	next_turn_card_penalty = data.get("next_turn_penalty", 0)
+	command_points = int(data.get("command_points", MAX_COMMAND_POINTS))
 	# 修复: 无线电静默/断电状态入档, 否则读档后 concealment_bonus 永久残留
 	radio_silence_active = bool(data.get("radio_silence_active", false))
 	power_cut_units = data.get("power_cut_units", {}).duplicate(true)

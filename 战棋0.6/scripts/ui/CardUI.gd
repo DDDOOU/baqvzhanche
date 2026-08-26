@@ -107,6 +107,13 @@ func _draw_help_bar(cs: Vector2) -> void:
 		Vector2(bar_x + 10, bar_y + bar_h * 0.72),
 		help_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, help_color)
 
+	# 指挥点显示（出牌消耗资源, 帮助栏右侧实时显示）
+	var cp_text := "指挥点: %d/%d" % [CardSystem.command_points, CardSystem.MAX_COMMAND_POINTS]
+	draw_string(ThemeDB.fallback_font,
+		Vector2(bar_x + bar_w - 10, bar_y + bar_h * 0.72),
+		cp_text, HORIZONTAL_ALIGNMENT_RIGHT, -1, font_size,
+		Color.YELLOW if CardSystem.command_points > 0 else Color.RED)
+
 
 func _draw_card(rect: Rect2, card, index: int) -> void:
 	# 绘制单张卡牌

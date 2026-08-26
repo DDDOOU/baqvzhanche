@@ -77,6 +77,10 @@ func start_planning_phase() -> void:
 	# 回合开始：手牌多弃少补到7张
 	CardSystem.adjust_hand_to(CardSystem.STARTING_HAND_SIZE)
 
+	# 每回合重置指挥点（cost 资源系统）
+	CardSystem.command_points = CardSystem.MAX_COMMAND_POINTS
+	CardSystem.command_points_changed.emit(CardSystem.command_points, CardSystem.MAX_COMMAND_POINTS)
+
 	# AI 开始规划（异步，不阻塞玩家）
 	NATOAI.plan_turn(current_turn)
 
