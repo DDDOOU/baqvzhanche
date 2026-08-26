@@ -14,6 +14,7 @@ const FACTION_COLORS: Dictionary = {
 	UnitBase.Faction.NATO:         Color(0.85, 0.20, 0.20),  # 北约红
 }
 
+
 ## === 单位贴图（苏式粗犷风令牌，assets/units/） ===
 ## 键为 UnitBase.UnitType 枚举名，值为 res:// 贴图路径。
 ## 九宫格视觉复核(2026-08-11, moonshot-v1-8k-vision-preview 逐张验证):
@@ -353,7 +354,8 @@ func _draw_unit(unit: UnitBase, pos: Vector2) -> void:
 
 	# 尺寸跟随格子大小缩放，避免越界：圆占格子约 78%，留出边距
 	var ts: float = GridManager.ISO_TILE_WIDTH * camera_zoom
-	var radius: float = GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.38
+	var radius: float = maxf(14.0, GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.38)
+	_draw_faction_ground_marker(pos, faction_color, ts)
 
 	var animation_config: Dictionary = animated_unit_sheets.get(unit.unit_type, {})
 	if not animation_config.is_empty():
@@ -546,7 +548,7 @@ func _load_cached_texture(path: String) -> Texture2D:
 
 func _draw_health_bar(pos: Vector2, unit: UnitBase, ts: float, radius: float) -> void:
 	"""绘制单位生命条"""
-	var bar_width = maxf(18.0, ts * 0.76)
+	var bar_width = maxf(28.0, ts * 0.76)
 	var bar_height = maxf(4.0, ts * 0.10)
 	# 紧贴圆下方，留小间距
 	var bar_y_offset = radius + max(4.0, ts * 0.10)
@@ -572,6 +574,25 @@ func _draw_health_bar(pos: Vector2, unit: UnitBase, ts: float, radius: float) ->
 	var morale_color = morale_colors[morale_tier]
 	draw_circle(pos + Vector2(0, bar_y_offset + bar_height + max(3.0, ts * 0.06)),
 		maxf(3.0, ts * 0.08), morale_color)
+
+
+func _draw_faction_ground_marker(pos: Vector2, faction_color: Color, ts: float) -> void:
+	"""用低矮菱形底座区分阵营，不遮住兵种像素轮廓。"""
+	var width := maxf(14.0, ts * 0.32)
+	var height := maxf(7.0, GridManager.ISO_TILE_HEIGHT * camera_zoom * 0.24)
+	var center := pos + Vector2(0.0, 8.0 * camera_zoom)
+	var diamond := PackedVector2Array([
+		center + Vector2(0.0, -height),
+		center + Vector2(width, 0.0),
+		center + Vector2(0.0, height),
+		center + Vector2(-width, 0.0),
+	])
+	draw_colored_polygon(diamond, Color(faction_color.r, faction_color.g, faction_color.b, 0.28))
+	var outline := PackedVector2Array([
+		diamond[0], diamond[1], diamond[2], diamond[3], diamond[0],
+	])
+	draw_polyline(outline, Color(faction_color.r, faction_color.g, faction_color.b, 0.96),
+		maxf(1.2, 1.8 * camera_zoom), true)
 
 
 func _draw_facing_arrow(pos: Vector2, unit: UnitBase, ts: float) -> void:

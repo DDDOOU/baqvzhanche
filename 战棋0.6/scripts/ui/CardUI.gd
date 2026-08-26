@@ -24,6 +24,9 @@ const CARD_COLORS: Dictionary = {
 ## === 状态 ===
 var selected_card_index: int = -1
 var is_panel_open: bool = false
+var selected_card_lift: float = 0.0
+var selected_card_pulse: float = 0.0
+var card_feedback_tween: Tween
 
 
 func _ready() -> void:
@@ -34,11 +37,17 @@ func _ready() -> void:
 	# 手牌变化自动重绘: 抽牌/用牌/弃牌/乱码/贷款/指挥点 — 修复选中卡牌后才刷新的问题
 	# 注: CardInstance 是 CardSystem 内部类, lambda 参数不能标注该类型, 用无类型参数
 	CardSystem.card_drawn.connect(func(_card): queue_redraw())
-	CardSystem.card_used.connect(func(_id, _col, _row): queue_redraw())
+	CardSystem.card_used.connect(func(_id, _col, _row): _play_card_use_feedback())
 	CardSystem.card_discarded.connect(func(_card): queue_redraw())
 	CardSystem.card_scrambled.connect(func(_card): queue_redraw())
 	CardSystem.loan_activated.connect(func(): queue_redraw())
 	CardSystem.command_points_changed.connect(func(_p, _m): queue_redraw())
+
+
+func _process(_delta: float) -> void:
+	# 自绘卡面不会因 Tween 属性变化自动重绘；仅在卡牌反馈期间逐帧刷新。
+	if card_feedback_tween and card_feedback_tween.is_valid():
+		queue_redraw()
 
 
 func _get_view_size() -> Vector2:
@@ -81,7 +90,8 @@ func _draw() -> void:
 	for i in range(hand.size()):
 		var card = hand[i]
 		var x = start_x + i * (cs.x + sp)
-		_draw_card(Rect2(x, card_y, cs.x, cs.y), card, i)
+		var y: float = card_y - selected_card_lift if i == selected_card_index else card_y
+		_draw_card(Rect2(x, y, cs.x, cs.y), card, i)
 
 
 func _draw_help_bar(cs: Vector2) -> void:
@@ -136,7 +146,9 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 
 	# 选中高亮
 	if index == selected_card_index:
-		draw_rect(rect.grow(3), Color.YELLOW, false, 2.0)
+		var glow_alpha := lerpf(0.55, 1.0, selected_card_pulse)
+		draw_rect(rect.grow(5), Color(1.0, 0.78, 0.18, glow_alpha * 0.24), false, 5.0)
+		draw_rect(rect.grow(3), Color(1.0, 0.88, 0.22, glow_alpha), false, 2.0)
 
 	# 卡牌背景
 	draw_rect(rect, bg_color, true)
@@ -288,6 +300,8 @@ func toggle_panel() -> void:
 	visible = is_panel_open
 	if is_panel_open:
 		selected_card_index = -1
+		selected_card_lift = 0.0
+		selected_card_pulse = 0.0
 	queue_redraw()
 
 
@@ -314,7 +328,7 @@ func get_card_at_pos(mouse_pos: Vector2) -> int:
 
 func select_card(index: int) -> void:
 	selected_card_index = index
-	queue_redraw()
+	_play_card_select_feedback()
 
 
 func use_selected_card(target_col: int, target_row: int) -> bool:
@@ -324,8 +338,29 @@ func use_selected_card(target_col: int, target_row: int) -> bool:
 	var success = CardSystem.use_card(selected_card_index, target_col, target_row)
 	if success:
 		selected_card_index = -1
-		queue_redraw()
+		_play_card_use_feedback()
 	return success
+
+
+func _play_card_select_feedback() -> void:
+	if card_feedback_tween and card_feedback_tween.is_valid():
+		card_feedback_tween.kill()
+	selected_card_lift = 0.0
+	selected_card_pulse = 0.0
+	card_feedback_tween = create_tween()
+	card_feedback_tween.tween_property(self, "selected_card_lift", 12.0, 0.12).set_trans(Tween.TRANS_BACK)
+	card_feedback_tween.parallel().tween_property(self, "selected_card_pulse", 1.0, 0.14)
+	card_feedback_tween.tween_property(self, "selected_card_pulse", 0.45, 0.38).set_trans(Tween.TRANS_SINE)
+	card_feedback_tween.tween_callback(queue_redraw)
+	queue_redraw()
+
+
+func _play_card_use_feedback() -> void:
+	if card_feedback_tween and card_feedback_tween.is_valid():
+		card_feedback_tween.kill()
+	selected_card_lift = 0.0
+	selected_card_pulse = 0.0
+	queue_redraw()
 
 
 func discard_card_at_pos(mouse_pos: Vector2) -> bool:

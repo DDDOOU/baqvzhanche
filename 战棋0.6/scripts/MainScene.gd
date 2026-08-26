@@ -14,6 +14,8 @@ var emi_label: Label
 var phase_timer_label: Label
 var hover_coord_label: Label
 var action_hint_label: Label
+var emi_progress_bar: ProgressBar
+var phase_progress_bar: ProgressBar
 var victory_progress_label: RichTextLabel
 var hover_info_panel: PanelContainer
 var hover_info_label: Label
@@ -320,11 +322,12 @@ func _setup_ui() -> void:
 	card_ui.offset_right = 0
 	card_ui.offset_bottom = 0
 
-	turn_label = _make_label(Vector2(10, 10), Color.WHITE, "第 1 回合")
-	morale_label = _make_label(Vector2(10, 35), Color.GOLD, "士气: 昂扬 (80)")
-	emi_label = _make_label(Vector2(10, 60), Color.RED, "EMI: 0%")
-	phase_timer_label = _make_label(Vector2(10, 85), Color.CYAN, "")
-	hover_coord_label = _make_label(Vector2(10, 110), Color(0.75, 0.9, 1.0), "")
+	_create_status_panel(hud)
+	turn_label = _make_label(Vector2(20, 12), Color.WHITE, "第 1 回合")
+	morale_label = _make_label(Vector2(20, 36), Color.GOLD, "士气: 昂扬 (80)")
+	emi_label = _make_label(Vector2(20, 60), Color(1.0, 0.48, 0.42), "EMI: 0%")
+	phase_timer_label = _make_label(Vector2(20, 89), Color(0.62, 0.90, 1.0), "")
+	hover_coord_label = _make_label(Vector2(20, 119), Color(0.75, 0.9, 1.0), "")
 	for lbl in [turn_label, morale_label, emi_label, phase_timer_label, hover_coord_label]:
 		hud.add_child(lbl)
 
@@ -340,60 +343,66 @@ func _setup_ui() -> void:
 	initiative_bar.unit_focus_requested.connect(_focus_camera_on_unit)
 	hud.add_child(initiative_bar)
 
-	action_hint_label = _make_label(Vector2(10, 272), Color(0.92, 0.9, 0.7),
+	action_hint_label = _make_label(Vector2(10, 302), Color(0.92, 0.9, 0.7),
 		"操作：点击己方单位 → 点击蓝格移动 / 点击红色敌军攻击；Tab 使用卡牌；Enter 结束计划")
 	action_hint_label.add_theme_font_size_override("font_size", 15)
 	hud.add_child(action_hint_label)
 
 	finish_planning_button = Button.new()
-	finish_planning_button.position = Vector2(10, 138)
+	finish_planning_button.position = Vector2(10, 157)
 	finish_planning_button.size = Vector2(150, 36)
 	finish_planning_button.text = "结束计划"
 	finish_planning_button.tooltip_text = "结束计划阶段"
 	finish_planning_button.visible = false
 	finish_planning_button.pressed.connect(_on_phase_skip_pressed)
+	_style_hud_button(finish_planning_button, Color(0.12, 0.38, 0.58, 0.95), Color(0.34, 0.82, 1.0))
 	hud.add_child(finish_planning_button)
 
 	card_toggle_button = Button.new()
-	card_toggle_button.position = Vector2(170, 138)
+	card_toggle_button.position = Vector2(170, 157)
 	card_toggle_button.size = Vector2(120, 36)
 	card_toggle_button.tooltip_text = "展开或收起卡牌栏（Tab）"
 	card_toggle_button.pressed.connect(_on_card_toggle_pressed)
+	_style_hud_button(card_toggle_button, Color(0.20, 0.26, 0.38, 0.95), Color(0.62, 0.78, 1.0))
 	hud.add_child(card_toggle_button)
 	_sync_card_toggle_button()
 
 	pause_button = Button.new()
-	pause_button.position = Vector2(300, 138)
+	pause_button.position = Vector2(300, 157)
 	pause_button.size = Vector2(96, 36)
 	pause_button.text = "暂停"
 	pause_button.tooltip_text = "暂停/继续（P）"
 	pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_button.pressed.connect(_on_pause_pressed)
+	_style_hud_button(pause_button, Color(0.20, 0.22, 0.26, 0.95), Color(0.72, 0.74, 0.78))
 	hud.add_child(pause_button)
 
 	confirm_move_button = Button.new()
-	confirm_move_button.position = Vector2(406, 138)
+	confirm_move_button.position = Vector2(406, 157)
 	confirm_move_button.size = Vector2(96, 36)
 	confirm_move_button.text = "确认移动"
 	confirm_move_button.visible = false
 	confirm_move_button.pressed.connect(_on_confirm_move_pressed)
+	_style_hud_button(confirm_move_button, Color(0.12, 0.52, 0.36, 0.96), Color(0.36, 1.0, 0.66))
 	hud.add_child(confirm_move_button)
 
 	cancel_move_button = Button.new()
-	cancel_move_button.position = Vector2(512, 138)
+	cancel_move_button.position = Vector2(512, 157)
 	cancel_move_button.size = Vector2(96, 36)
 	cancel_move_button.text = "取消"
 	cancel_move_button.visible = false
 	cancel_move_button.pressed.connect(_on_cancel_move_pressed)
+	_style_hud_button(cancel_move_button, Color(0.42, 0.18, 0.18, 0.95), Color(1.0, 0.58, 0.50))
 	hud.add_child(cancel_move_button)
 
 	loan_button = Button.new()
-	loan_button.position = Vector2(618, 138)
+	loan_button.position = Vector2(618, 157)
 	loan_button.size = Vector2(142, 36)
 	loan_button.text = "指挥贷款 +1牌"
 	loan_button.tooltip_text = "立即抽1张牌；下回合少抽1张，战役贷款+10"
 	loan_button.visible = false
 	loan_button.pressed.connect(_on_loan_pressed)
+	_style_hud_button(loan_button, Color(0.42, 0.30, 0.10, 0.95), Color(1.0, 0.78, 0.30))
 	hud.add_child(loan_button)
 
 	_create_hover_info_panel(hud)
@@ -402,6 +411,73 @@ func _setup_ui() -> void:
 
 	var battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
 	hud.add_child(battle_log_ui)
+
+
+func _create_status_panel(hud: CanvasLayer) -> void:
+	var panel := Panel.new()
+	panel.position = Vector2(8, 8)
+	panel.size = Vector2(204, 141)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.035, 0.05, 0.90)
+	style.border_color = Color(0.34, 0.50, 0.66, 0.94)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	panel.add_theme_stylebox_override("panel", style)
+	hud.add_child(panel)
+
+	emi_progress_bar = _make_status_bar(Color(1.0, 0.34, 0.28), Color(0.18, 0.06, 0.07))
+	emi_progress_bar.position = Vector2(20, 80)
+	emi_progress_bar.size = Vector2(176, 5)
+	hud.add_child(emi_progress_bar)
+
+	phase_progress_bar = _make_status_bar(Color(0.28, 0.78, 1.0), Color(0.05, 0.14, 0.20))
+	phase_progress_bar.position = Vector2(20, 110)
+	phase_progress_bar.size = Vector2(176, 5)
+	hud.add_child(phase_progress_bar)
+
+
+func _make_status_bar(fill: Color, background: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 100.0
+	bar.show_percentage = false
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var background_style := StyleBoxFlat.new()
+	background_style.bg_color = background
+	background_style.corner_radius_top_left = 2
+	background_style.corner_radius_top_right = 2
+	background_style.corner_radius_bottom_left = 2
+	background_style.corner_radius_bottom_right = 2
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = fill
+	fill_style.corner_radius_top_left = 2
+	fill_style.corner_radius_top_right = 2
+	fill_style.corner_radius_bottom_left = 2
+	fill_style.corner_radius_bottom_right = 2
+	bar.add_theme_stylebox_override("background", background_style)
+	bar.add_theme_stylebox_override("fill", fill_style)
+	return bar
+
+
+func _style_hud_button(button: Button, fill: Color, border: Color) -> void:
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_font_size_override("font_size", 15)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = fill
+	normal.border_color = border
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(4)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = fill.lightened(0.16)
+	hover.set_border_width_all(2)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = fill.darkened(0.20)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
 
 
 func _make_label(pos: Vector2, color: Color, text: String) -> Label:
@@ -431,7 +507,7 @@ func _layout_victory_progress_panel() -> void:
 		return
 	var vp := get_viewport_rect().size
 	var panel_w := minf(360.0, maxf(280.0, vp.x * 0.28))
-	victory_progress_label.position = Vector2(10, 180)
+	victory_progress_label.position = Vector2(10, 204)
 	victory_progress_label.size = Vector2(panel_w, 86)
 
 
@@ -522,6 +598,15 @@ func _process(delta: float) -> void:
 	turn_label.text = "第%d回合 / 共%d回合" % [TurnManager.current_turn, CampaignManager.max_turns]
 	morale_label.text = "士气: %s (%d)" % [CampaignManager.get_morale_tier_name(), CampaignManager.campaign_morale]
 	emi_label.text = "EMI: %.0f%%" % (EMISystem.current_intensity * 100)
+	if emi_progress_bar:
+		emi_progress_bar.value = EMISystem.current_intensity * 100.0
+	if phase_progress_bar:
+		if TurnManager.is_planning:
+			phase_progress_bar.value = clampf(100.0 * (1.0 - TurnManager.get_remaining_planning_time() / GameManager.PLANNING_DURATION), 0.0, 100.0)
+		elif TurnManager.is_executing:
+			phase_progress_bar.value = clampf(100.0 * (1.0 - TurnManager.get_remaining_execution_time() / GameManager.EXECUTION_DURATION), 0.0, 100.0)
+		else:
+			phase_progress_bar.value = 0.0
 	_update_victory_progress()
 	_sync_card_toggle_button()
 	_sync_move_confirmation_buttons()
