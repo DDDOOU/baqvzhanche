@@ -31,6 +31,14 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	get_viewport().size_changed.connect(queue_redraw)
+	# 手牌变化自动重绘: 抽牌/用牌/弃牌/乱码/贷款/指挥点 — 修复选中卡牌后才刷新的问题
+	# 注: CardInstance 是 CardSystem 内部类, lambda 参数不能标注该类型, 用无类型参数
+	CardSystem.card_drawn.connect(func(_card): queue_redraw())
+	CardSystem.card_used.connect(func(_id, _col, _row): queue_redraw())
+	CardSystem.card_discarded.connect(func(_card): queue_redraw())
+	CardSystem.card_scrambled.connect(func(_card): queue_redraw())
+	CardSystem.loan_activated.connect(func(): queue_redraw())
+	CardSystem.command_points_changed.connect(func(_p, _m): queue_redraw())
 
 
 func _get_view_size() -> Vector2:
