@@ -24,6 +24,65 @@ func _run() -> void:
 	_check(victory_manager.nato_command_unit_id >= 0, "应绑定北约指挥单位")
 	_check(GridManager.MAP_WIDTH == 40 and GridManager.MAP_HEIGHT == 45, "第一关地图应为40×45")
 	_check(get_tree().get_nodes_in_group("units").size() == 18, "第一关应生成18支初始单位")
+	_check(main.get_children().find(main.fog_renderer) > main.get_children().find(main.unit_renderer) \
+		and main.fog_renderer.z_index > main.unit_renderer.z_index,
+		"战争迷雾实体层应位于单位层之上")
+	_check(main.background_renderer != null and main.background_renderer.z_index < 0
+		and main.background_renderer.get_theme_id() == 0
+		and main.background_renderer.background_texture != null,
+		"每关应有位于棋盘底层的独立战场背景")
+	_check(main.command_bar != null and main.command_row != null
+		and main.command_row.get_child_count() == 6,
+		"指挥操作应收敛到响应式工具栏")
+	_check(main.battle_log_ui != null and not main.battle_log_ui.is_expanded,
+		"战报默认应收起为最新事件，优先保留战场视野")
+	_check(main._is_pointer_over_button(main.battle_log_toggle_button.get_global_rect().get_center()),
+		"战报按钮应被识别为HUD控件，不得被地图拖拽输入截获")
+	main.battle_log_toggle_button.pressed.emit()
+	await get_tree().create_timer(0.25).timeout
+	_check(main.battle_log_ui.is_expanded and main.battle_log_toggle_button.text == "收起",
+		"点击战报按钮应展开战报并同步按钮文字")
+	main.battle_log_toggle_button.pressed.emit()
+	await get_tree().create_timer(0.25).timeout
+	_check(not main.battle_log_ui.is_expanded and main.battle_log_toggle_button.text == "战报",
+		"再次点击战报按钮应收起战报并恢复按钮文字")
+	main.battle_log_ui.set_expanded(true)
+	await get_tree().create_timer(0.25).timeout
+	_check(main.battle_log_ui.is_expanded, "战报应能展开完整记录")
+	main.battle_log_ui.set_expanded(false)
+	main._set_card_panel_open(true)
+	await get_tree().create_timer(0.40).timeout
+	_check(main.card_ui.is_panel_open and main.card_ui.is_panel_rendered
+		and is_zero_approx(main.card_ui.panel_offset_y),
+		"卡牌栏应在展开动画后进入可交互位置")
+	var card_size: Vector2 = main.card_ui._get_card_size()
+	var center_card_index := int(CardSystem.hand.size() / 2)
+	var center_layout: Dictionary = main.card_ui._get_card_layout(center_card_index, CardSystem.hand.size(), card_size)
+	var edge_layout: Dictionary = main.card_ui._get_card_layout(0, CardSystem.hand.size(), card_size)
+	_check(float(center_layout.center.y) < float(edge_layout.center.y)
+		and absf(float(edge_layout.rotation)) > 0.0,
+		"手牌应形成中间上拱、两侧倾斜的弧线布局")
+	main.card_ui.hovered_card_index = center_card_index
+	main.card_ui.hover_visual_lift = CardUI.CARD_HOVER_LIFT
+	var hover_layout: Dictionary = main.card_ui._get_card_layout(center_card_index, CardSystem.hand.size(), card_size)
+	_check(float(hover_layout.scale) > 1.0 and float(hover_layout.center.y) < float(center_layout.center.y),
+		"鼠标悬停的卡牌应上抬并放大突出显示")
+	main.card_ui.hovered_card_index = -1
+	main.card_ui.hover_visual_lift = 0.0
+	var bottom_ui_top: float = main._get_bottom_ui_top()
+	_check(main.action_hint_panel.get_global_rect().end.y <= bottom_ui_top - 7.0,
+		"行动提示应位于卡牌说明栏之上，不得与卡牌底部区域重叠")
+	main._set_hover_info("测试单位\n坐标 (20,29)", Vector2(
+		main.get_viewport_rect().size.x * 0.5, bottom_ui_top - 4.0))
+	var hover_safe_top: float = main.action_hint_panel.get_global_rect().position.y - 7.0 \
+		if main.action_hint_panel.visible else bottom_ui_top - 7.0
+	_check(main.hover_info_panel.get_global_rect().end.y <= hover_safe_top,
+		"地图悬浮信息应避开行动提示与卡牌区域")
+	main._set_hover_info("", Vector2.ZERO)
+	main._set_card_panel_open(false)
+	await get_tree().create_timer(0.20).timeout
+	_check(not main.card_ui.visible and not main.card_ui.is_panel_rendered,
+		"卡牌栏收起动画结束后应释放战场空间")
 	_check(GridManager.get_neighbors(0, 0).size() == 2, "地图角落应只有两个四方向邻格")
 	_check(GridManager.manhattan_distance(1, 2, 4, 6) == 7, "四方向曼哈顿距离应正确")
 	var tank := _get_unit_by_id(1004)
@@ -70,6 +129,12 @@ func _run() -> void:
 		"单位实例的先手值应来自Excel同步配置")
 	_check(main.initiative_bar != null and main.initiative_bar.get_ordered_unit_ids().size() == 18,
 		"顶部行动顺序条应显示敌我18支初始单位")
+	var visible_initiative_cards := 0
+	for button in main.initiative_bar.unit_buttons.values():
+		if (button as Button).visible:
+			visible_initiative_cards += 1
+	_check(visible_initiative_cards <= InitiativeBar.MAX_VISIBLE_CARDS,
+		"顶部行动条应仅显示一个紧凑的六格行动窗口")
 	main._on_unit_action_started(tank.unit_id, 0, 18)
 	_check(main.unit_renderer.acting_unit == tank,
 		"当前行动单位应在地图渲染器中获得独立高亮")
@@ -94,6 +159,7 @@ func _run() -> void:
 	_check(faction_transitions >= 2, "敌我单位应在同一先手队列中交错排列")
 	if tank != null:
 		var previous_pan: Vector2 = main.camera_pan
+		main.initiative_bar.set_active_unit(tank.unit_id)
 		var tank_button := main.initiative_bar.unit_buttons.get(tank.unit_id) as Button
 		var pointer_event := InputEventMouseButton.new()
 		pointer_event.button_index = MOUSE_BUTTON_LEFT
@@ -165,6 +231,22 @@ func _run() -> void:
 
 	var fogged_unit = get_tree().get_first_node_in_group("units") as UnitBase
 	_check(fogged_unit != null and fogged_unit.has_meta("base_vision_range"), "雾效应保存基础视野")
+	_check(FogOfWar.enabled, "第1关应启用战争迷雾")
+	if fogged_unit != null:
+		var friendly_cell = GridManager.get_cell(fogged_unit.grid_col, fogged_unit.grid_row)
+		_check(friendly_cell != null and friendly_cell.is_visible and friendly_cell.is_explored,
+			"己方单位所在格应在当前视野内且已探索")
+	var distant_enemy := _get_unit_by_id(1011)
+	if distant_enemy != null:
+		var enemy_cell = GridManager.get_cell(distant_enemy.grid_col, distant_enemy.grid_row)
+		_check(enemy_cell != null and not enemy_cell.is_visible and not enemy_cell.is_explored,
+			"远端敌军所在格开局应保持未探索黑雾")
+		_check(not FogOfWar.is_unit_visible(distant_enemy), "不可见敌军不应暴露给玩家")
+		if enemy_cell != null:
+			enemy_cell.is_explored = true
+			FogOfWar.refresh()
+			_check(not enemy_cell.is_visible and enemy_cell.is_explored,
+				"离开视野的已探索格应保留灰雾状态")
 	if fogged_unit != null:
 		main._on_round_event_triggered("fog_lifts", {"description": "测试：雾散"})
 		_check(fogged_unit.vision_range == int(fogged_unit.get_meta("base_vision_range")), "雾散应恢复视野")
@@ -230,7 +312,7 @@ func _run() -> void:
 	_check(result.game_over and result.winner == UnitBase.Faction.NATO, "华约指挥单位被毁应立即判负")
 
 	if _failures.is_empty():
-		print("[SMOKE TEST] PASS (%d checks)" % 79)
+		print("[SMOKE TEST] PASS (%d checks)" % 99)
 		get_tree().quit(0)
 		return
 

@@ -5,6 +5,8 @@ extends Node2D
 
 @onready var tile_grid: TileGridRenderer = $TileGridRenderer
 @onready var unit_renderer: UnitRenderer = $UnitRenderer
+@onready var fog_renderer: Node2D = $FogOfWarRenderer
+@onready var background_renderer: LevelBackgroundRenderer = $LevelBackgroundRenderer
 @onready var card_ui: CardUI = $CardUI
 @onready var camera: Camera2D = $Camera2D
 
@@ -14,6 +16,13 @@ var emi_label: Label
 var phase_timer_label: Label
 var hover_coord_label: Label
 var action_hint_label: Label
+var status_panel: Panel
+var command_bar: PanelContainer
+var command_row: HBoxContainer
+var action_hint_panel: PanelContainer
+var battle_log_ui: BattleLogUI
+var battle_log_toggle_button: Button
+var action_hint_tween: Tween
 var emi_progress_bar: ProgressBar
 var phase_progress_bar: ProgressBar
 var victory_progress_label: RichTextLabel
@@ -61,6 +70,7 @@ const CAMERA_MIN_ZOOM: float = 0.05
 const CAMERA_MAX_ZOOM: float = 2.0
 const CAMERA_ZOOM_STEP: float = 1.12
 const MAP_DRAG_THRESHOLD: float = 4.0
+const TUTORIAL_ACTION_HINT := "选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。"
 # Large campaign maps must remain readable at first glance. Players can still
 # zoom out to inspect the complete map with the existing wheel control.
 const INITIAL_READABILITY_ZOOM: float = 0.50
@@ -128,6 +138,8 @@ func _load_designed_level(level_id: int) -> void:
 	tile_grid.use_source_tilemap(level_terrain, level_used_rect)
 	tile_grid.set_building_highlights(building_owner_by_cell)
 	unit_renderer.use_source_tilemap(level_terrain, level_used_rect)
+	fog_renderer.use_source_tilemap(level_terrain, level_used_rect)
+	background_renderer.configure(level_id, level_terrain, level_used_rect)
 	print("[MainScene] 使用设计关卡 %s，地图尺寸=%dx%d，原始起点=(%d,%d)" % [
 		scene_path, level_used_rect.size.x, level_used_rect.size.y,
 		level_used_rect.position.x, level_used_rect.position.y])
@@ -267,12 +279,14 @@ func _apply_camera_transform() -> void:
 	var offset := base_camera_offset + camera_pan
 	tile_grid.set_camera(offset, zoom)
 	unit_renderer.set_camera(offset, zoom)
+	fog_renderer.set_camera(offset, zoom)
 	if level_scene_instance and level_terrain:
 		var level_scale := 2.0 * zoom
 		level_scene_instance.scale = Vector2.ONE * level_scale
 		var source_origin := level_terrain.map_to_local(level_used_rect.position)
 		var target_origin := GridManager.get_iso_map_origin() * zoom + offset
 		level_scene_instance.position = target_origin - source_origin * level_scale
+	background_renderer.set_camera(offset, zoom)
 
 
 func _on_viewport_resized() -> void:
@@ -299,6 +313,7 @@ func _connect_signals() -> void:
 	EMISystem.intensity_changed.connect(_on_emi_changed)
 	CardSystem.card_drawn.connect(_on_card_drawn)
 	CardSystem.card_used.connect(_on_card_used)
+	FogOfWar.visibility_updated.connect(_on_fog_visibility_updated)
 	# 移动每步/完成都刷新单位渲染，沙盘演示时实时看到移动/攻击掉血
 	MovementSystem.unit_step.connect(_on_unit_step)
 	MovementSystem.unit_move_completed.connect(_on_unit_move_completed)
@@ -323,118 +338,217 @@ func _setup_ui() -> void:
 	card_ui.offset_bottom = 0
 
 	_create_status_panel(hud)
-	turn_label = _make_label(Vector2(20, 12), Color.WHITE, "第 1 回合")
-	morale_label = _make_label(Vector2(20, 36), Color.GOLD, "士气: 昂扬 (80)")
-	emi_label = _make_label(Vector2(20, 60), Color(1.0, 0.48, 0.42), "EMI: 0%")
-	phase_timer_label = _make_label(Vector2(20, 89), Color(0.62, 0.90, 1.0), "")
-	hover_coord_label = _make_label(Vector2(20, 119), Color(0.75, 0.9, 1.0), "")
+	turn_label = _make_label(Vector2(12, 10), Color.WHITE, "第 1 回合")
+	morale_label = _make_label(Vector2(12, 34), Color.GOLD, "士气: 昂扬 (80)")
+	emi_label = _make_label(Vector2(12, 58), Color(1.0, 0.48, 0.42), "EMI: 0%")
+	phase_timer_label = _make_label(Vector2(12, 89), Color(0.62, 0.90, 1.0), "")
+	hover_coord_label = _make_label(Vector2(12, 118), Color(0.75, 0.9, 1.0), "")
 	for lbl in [turn_label, morale_label, emi_label, phase_timer_label, hover_coord_label]:
-		hud.add_child(lbl)
+		status_panel.add_child(lbl)
 
 	initiative_bar = InitiativeBar.new()
 	initiative_bar.name = "InitiativeBar"
-	initiative_bar.anchor_left = 0.17
-	initiative_bar.anchor_right = 0.76
+	initiative_bar.anchor_left = 0.23
+	initiative_bar.anchor_right = 0.74
 	initiative_bar.anchor_top = 0.0
 	initiative_bar.anchor_bottom = 0.0
 	initiative_bar.offset_top = 8.0
-	initiative_bar.offset_bottom = 96.0
+	initiative_bar.offset_bottom = 72.0
 	initiative_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	initiative_bar.unit_focus_requested.connect(_focus_camera_on_unit)
 	hud.add_child(initiative_bar)
 
-	action_hint_label = _make_label(Vector2(10, 302), Color(0.92, 0.9, 0.7),
-		"操作：点击己方单位 → 点击蓝格移动 / 点击红色敌军攻击；Tab 使用卡牌；Enter 结束计划")
-	action_hint_label.add_theme_font_size_override("font_size", 15)
-	hud.add_child(action_hint_label)
+	_create_action_hint_panel(hud)
+	_create_command_toolbar(hud)
 
 	finish_planning_button = Button.new()
-	finish_planning_button.position = Vector2(10, 157)
-	finish_planning_button.size = Vector2(150, 36)
+	finish_planning_button.custom_minimum_size = Vector2(96, 30)
 	finish_planning_button.text = "结束计划"
 	finish_planning_button.tooltip_text = "结束计划阶段"
 	finish_planning_button.visible = false
 	finish_planning_button.pressed.connect(_on_phase_skip_pressed)
 	_style_hud_button(finish_planning_button, Color(0.12, 0.38, 0.58, 0.95), Color(0.34, 0.82, 1.0))
-	hud.add_child(finish_planning_button)
+	_add_command_button(finish_planning_button)
 
 	card_toggle_button = Button.new()
-	card_toggle_button.position = Vector2(170, 157)
-	card_toggle_button.size = Vector2(120, 36)
+	card_toggle_button.custom_minimum_size = Vector2(82, 30)
 	card_toggle_button.tooltip_text = "展开或收起卡牌栏（Tab）"
 	card_toggle_button.pressed.connect(_on_card_toggle_pressed)
 	_style_hud_button(card_toggle_button, Color(0.20, 0.26, 0.38, 0.95), Color(0.62, 0.78, 1.0))
-	hud.add_child(card_toggle_button)
+	_add_command_button(card_toggle_button)
 	_sync_card_toggle_button()
 
 	pause_button = Button.new()
-	pause_button.position = Vector2(300, 157)
-	pause_button.size = Vector2(96, 36)
+	pause_button.custom_minimum_size = Vector2(62, 30)
 	pause_button.text = "暂停"
 	pause_button.tooltip_text = "暂停/继续（P）"
 	pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_button.pressed.connect(_on_pause_pressed)
 	_style_hud_button(pause_button, Color(0.20, 0.22, 0.26, 0.95), Color(0.72, 0.74, 0.78))
-	hud.add_child(pause_button)
+	_add_command_button(pause_button)
 
 	confirm_move_button = Button.new()
-	confirm_move_button.position = Vector2(406, 157)
-	confirm_move_button.size = Vector2(96, 36)
+	confirm_move_button.custom_minimum_size = Vector2(84, 30)
 	confirm_move_button.text = "确认移动"
 	confirm_move_button.visible = false
 	confirm_move_button.pressed.connect(_on_confirm_move_pressed)
 	_style_hud_button(confirm_move_button, Color(0.12, 0.52, 0.36, 0.96), Color(0.36, 1.0, 0.66))
-	hud.add_child(confirm_move_button)
+	_add_command_button(confirm_move_button)
 
 	cancel_move_button = Button.new()
-	cancel_move_button.position = Vector2(512, 157)
-	cancel_move_button.size = Vector2(96, 36)
+	cancel_move_button.custom_minimum_size = Vector2(62, 30)
 	cancel_move_button.text = "取消"
 	cancel_move_button.visible = false
 	cancel_move_button.pressed.connect(_on_cancel_move_pressed)
 	_style_hud_button(cancel_move_button, Color(0.42, 0.18, 0.18, 0.95), Color(1.0, 0.58, 0.50))
-	hud.add_child(cancel_move_button)
+	_add_command_button(cancel_move_button)
 
 	loan_button = Button.new()
-	loan_button.position = Vector2(618, 157)
-	loan_button.size = Vector2(142, 36)
+	loan_button.custom_minimum_size = Vector2(112, 30)
 	loan_button.text = "指挥贷款 +1牌"
 	loan_button.tooltip_text = "立即抽1张牌；下回合少抽1张，战役贷款+10"
 	loan_button.visible = false
 	loan_button.pressed.connect(_on_loan_pressed)
 	_style_hud_button(loan_button, Color(0.42, 0.30, 0.10, 0.95), Color(1.0, 0.78, 0.30))
-	hud.add_child(loan_button)
+	_add_command_button(loan_button)
 
 	_create_hover_info_panel(hud)
-	_create_victory_progress_panel(hud)
+	_create_victory_progress_panel()
 	_create_pause_overlay()
 
-	var battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
+	battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
 	hud.add_child(battle_log_ui)
+	_create_battle_log_toggle(hud)
+	get_viewport().size_changed.connect(_layout_hud)
+	_layout_hud()
 
 
 func _create_status_panel(hud: CanvasLayer) -> void:
-	var panel := Panel.new()
-	panel.position = Vector2(8, 8)
-	panel.size = Vector2(204, 141)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_panel = Panel.new()
+	status_panel.position = Vector2(8, 8)
+	status_panel.size = Vector2(258, 218)
+	status_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.035, 0.05, 0.90)
+	style.bg_color = Color(0.025, 0.035, 0.05, 0.84)
 	style.border_color = Color(0.34, 0.50, 0.66, 0.94)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(4)
-	panel.add_theme_stylebox_override("panel", style)
-	hud.add_child(panel)
+	status_panel.add_theme_stylebox_override("panel", style)
+	hud.add_child(status_panel)
 
 	emi_progress_bar = _make_status_bar(Color(1.0, 0.34, 0.28), Color(0.18, 0.06, 0.07))
-	emi_progress_bar.position = Vector2(20, 80)
-	emi_progress_bar.size = Vector2(176, 5)
-	hud.add_child(emi_progress_bar)
+	emi_progress_bar.position = Vector2(12, 78)
+	emi_progress_bar.size = Vector2(234, 5)
+	status_panel.add_child(emi_progress_bar)
 
 	phase_progress_bar = _make_status_bar(Color(0.28, 0.78, 1.0), Color(0.05, 0.14, 0.20))
-	phase_progress_bar.position = Vector2(20, 110)
-	phase_progress_bar.size = Vector2(176, 5)
-	hud.add_child(phase_progress_bar)
+	phase_progress_bar.position = Vector2(12, 109)
+	phase_progress_bar.size = Vector2(234, 5)
+	status_panel.add_child(phase_progress_bar)
+
+
+func _create_command_toolbar(hud: CanvasLayer) -> void:
+	command_bar = PanelContainer.new()
+	command_bar.position = Vector2(8, 234)
+	command_bar.size = Vector2(160, 40)
+	command_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	command_bar.add_theme_stylebox_override("panel", _make_translucent_panel_stylebox())
+	hud.add_child(command_bar)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 4)
+	margin.add_theme_constant_override("margin_right", 4)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	command_bar.add_child(margin)
+
+	command_row = HBoxContainer.new()
+	command_row.add_theme_constant_override("separation", 4)
+	margin.add_child(command_row)
+
+
+func _add_command_button(button: Button) -> void:
+	if command_row == null:
+		return
+	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	button.pivot_offset = button.custom_minimum_size * 0.5
+	button.mouse_entered.connect(func() -> void:
+		if button.disabled or not button.visible:
+			return
+		button.pivot_offset = button.size * 0.5
+		var tween := button.create_tween()
+		tween.tween_property(button, "scale", Vector2(1.035, 1.035), 0.10)
+	)
+	button.mouse_exited.connect(func() -> void:
+		var tween := button.create_tween()
+		tween.tween_property(button, "scale", Vector2.ONE, 0.12)
+	)
+	command_row.add_child(button)
+
+
+func _create_action_hint_panel(hud: CanvasLayer) -> void:
+	action_hint_panel = PanelContainer.new()
+	action_hint_panel.visible = false
+	action_hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	action_hint_panel.add_theme_stylebox_override("panel", _make_translucent_panel_stylebox())
+	hud.add_child(action_hint_panel)
+
+	action_hint_label = Label.new()
+	action_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	action_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	action_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	action_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	action_hint_label.add_theme_color_override("font_color", Color(0.92, 0.9, 0.7))
+	action_hint_label.add_theme_font_size_override("font_size", 14)
+	action_hint_label.text = ""
+	action_hint_panel.add_child(action_hint_label)
+
+
+func _create_battle_log_toggle(hud: CanvasLayer) -> void:
+	battle_log_toggle_button = Button.new()
+	battle_log_toggle_button.text = "战报"
+	battle_log_toggle_button.tooltip_text = "展开或收起战报"
+	battle_log_toggle_button.custom_minimum_size = Vector2(72, 28)
+	battle_log_toggle_button.pressed.connect(func() -> void:
+		battle_log_ui.set_expanded(not battle_log_ui.is_expanded)
+		battle_log_toggle_button.text = "收起" if battle_log_ui.is_expanded else "战报"
+		_layout_hud()
+	)
+	_style_hud_button(battle_log_toggle_button, Color(0.16, 0.20, 0.27, 0.96), Color(0.55, 0.64, 0.74))
+	hud.add_child(battle_log_toggle_button)
+
+
+func _layout_hud() -> void:
+	var vp := get_viewport_rect().size
+	if status_panel:
+		status_panel.size.x = minf(258.0, maxf(220.0, vp.x * 0.22))
+		var bar_width := status_panel.size.x - 24.0
+		if emi_progress_bar:
+			emi_progress_bar.size.x = bar_width
+		if phase_progress_bar:
+			phase_progress_bar.size.x = bar_width
+		_layout_victory_progress_panel()
+	if command_bar:
+		command_row.queue_sort()
+		var command_width := command_row.get_combined_minimum_size().x + 8.0
+		command_bar.size.x = minf(vp.x - 16.0, maxf(160.0, command_width))
+		command_bar.position.y = status_panel.position.y + status_panel.size.y + 8.0
+	if action_hint_panel:
+		var hint_width := minf(680.0, maxf(280.0, vp.x * 0.54))
+		action_hint_panel.size = Vector2(hint_width, 42)
+		action_hint_panel.position = Vector2((vp.x - hint_width) * 0.5,
+			maxf(8.0, _get_bottom_ui_top() - action_hint_panel.size.y - 8.0))
+	if battle_log_toggle_button:
+		var log_width := battle_log_ui.get_panel_width() if battle_log_ui else BattleLogUI.COLLAPSED_WIDTH
+		battle_log_toggle_button.position = Vector2(vp.x - log_width - BattleLogUI.PANEL_MARGIN, 62.0)
+
+
+func _get_bottom_ui_top() -> float:
+	# 卡牌本体、卡牌说明栏和行动提示分别占用独立的垂直区间。
+	var vp := get_viewport_rect().size
+	if card_ui == null or not card_ui.is_panel_open:
+		return vp.y
+	return card_ui.get_panel_top()
 
 
 func _make_status_bar(fill: Color, background: Color) -> ProgressBar:
@@ -489,15 +603,14 @@ func _make_label(pos: Vector2, color: Color, text: String) -> Label:
 	return l
 
 
-func _create_victory_progress_panel(hud: CanvasLayer) -> void:
+func _create_victory_progress_panel() -> void:
 	victory_progress_label = RichTextLabel.new()
 	victory_progress_label.bbcode_enabled = true
 	victory_progress_label.scroll_active = false
 	victory_progress_label.selection_enabled = false
 	victory_progress_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	victory_progress_label.add_theme_stylebox_override("normal", _make_translucent_panel_stylebox())
-	victory_progress_label.add_theme_font_size_override("normal_font_size", 14)
-	hud.add_child(victory_progress_label)
+	victory_progress_label.add_theme_font_size_override("normal_font_size", 12)
+	status_panel.add_child(victory_progress_label)
 	get_viewport().size_changed.connect(_layout_victory_progress_panel)
 	_layout_victory_progress_panel()
 
@@ -505,15 +618,14 @@ func _create_victory_progress_panel(hud: CanvasLayer) -> void:
 func _layout_victory_progress_panel() -> void:
 	if victory_progress_label == null:
 		return
-	var vp := get_viewport_rect().size
-	var panel_w := minf(360.0, maxf(280.0, vp.x * 0.28))
-	victory_progress_label.position = Vector2(10, 204)
-	victory_progress_label.size = Vector2(panel_w, 86)
+	var panel_width := status_panel.size.x if status_panel else 258.0
+	victory_progress_label.position = Vector2(10, 140)
+	victory_progress_label.size = Vector2(panel_width - 20.0, 68)
 
 
 func _make_translucent_panel_stylebox() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.05, 0.08, 0.78)
+	sb.bg_color = Color(0.05, 0.05, 0.08, 0.68)
 	sb.border_color = Color(0.45, 0.45, 0.55, 0.85)
 	sb.set_border_width_all(1)
 	sb.set_content_margin_all(8)
@@ -580,21 +692,21 @@ func _process(delta: float) -> void:
 	if TurnManager.is_planning:
 		phase_timer_label.text = "计划阶段: %.0fs" % TurnManager.get_remaining_planning_time()
 		_update_hover_coordinate()
-		finish_planning_button.visible = true
+		_set_finish_button_visible(true)
 		finish_planning_button.disabled = false
 		finish_planning_button.text = "结束计划"
 		finish_planning_button.tooltip_text = "结束计划阶段"
 	elif TurnManager.is_executing:
 		phase_timer_label.text = "演算阶段: %.0fs" % TurnManager.get_remaining_execution_time()
 		hover_coord_label.text = ""
-		finish_planning_button.visible = true
+		_set_finish_button_visible(true)
 		finish_planning_button.disabled = false
 		finish_planning_button.text = "跳过演算"
 		finish_planning_button.tooltip_text = "跳过剩余演算等待"
 	else:
 		phase_timer_label.text = ""
 		hover_coord_label.text = ""
-		finish_planning_button.visible = false
+		_set_finish_button_visible(false)
 	turn_label.text = "第%d回合 / 共%d回合" % [TurnManager.current_turn, CampaignManager.max_turns]
 	morale_label.text = "士气: %s (%d)" % [CampaignManager.get_morale_tier_name(), CampaignManager.campaign_morale]
 	emi_label.text = "EMI: %.0f%%" % (EMISystem.current_intensity * 100)
@@ -732,11 +844,17 @@ func _set_hover_info(text: String, mouse_position: Vector2) -> void:
 	hover_info_panel.visible = true
 	var pos := mouse_position + Vector2(18, 18)
 	var vp := get_viewport_rect().size
-	var estimated_size := Vector2(240, 58)
+	# 先按实际文本尺寸估算，避免较长单位名导致提示框越过安全区。
+	var estimated_size := hover_info_panel.get_combined_minimum_size().max(Vector2(240, 58))
+	hover_info_panel.size = estimated_size
 	if pos.x + estimated_size.x > vp.x:
 		pos.x = maxf(8.0, mouse_position.x - estimated_size.x - 18.0)
-	if pos.y + estimated_size.y > vp.y:
-		pos.y = maxf(8.0, mouse_position.y - estimated_size.y - 18.0)
+	var protected_bottom := _get_bottom_ui_top()
+	if action_hint_panel and action_hint_panel.visible:
+		protected_bottom = minf(protected_bottom, action_hint_panel.position.y - 8.0)
+	if pos.y + estimated_size.y > protected_bottom:
+		pos.y = maxf(8.0, minf(mouse_position.y - estimated_size.y - 18.0,
+			protected_bottom - estimated_size.y - 8.0))
 	hover_info_panel.position = pos
 
 
@@ -816,7 +934,7 @@ func _update_victory_progress() -> void:
 	var vp = VictoryManager.get_vp_control()
 	var counts := _count_alive_units_local()
 	var vp_total := GridManager.vp_cells.size()
-	victory_progress_label.text = "[font_size=14][color=#e8e4bf][b]胜利条件[/b][/color]  第%d回合结束守住至少2个VP\n[color=#d8d8d8]进度[/color]  第%d/%d回合   VP 我方%d/%d 敌方%d 中立%d\n[color=#d8d8d8]单位[/color]  我方%d 敌方%d    [color=#6ab7ff]蓝[/color]=我方建筑 [color=#ff766c]红[/color]=敌方建筑[/font_size]" % [
+	victory_progress_label.text = "[font_size=12][color=#e8e4bf][b]目标[/b][/color]  守住 2 个 VP（第%d回合结束）\n[color=#d8d8d8]进度[/color]  T%d/%d · VP我%d/%d 敌%d 中%d\n[color=#d8d8d8]部队[/color]  我%d · 敌%d · [color=#6ab7ff]蓝[/color]/[color=#ff766c]红[/color]建筑归属[/font_size]" % [
 		VictoryManager.max_turns, TurnManager.current_turn, VictoryManager.max_turns,
 		vp.wp, vp_total, vp.nato, vp.neutral,
 		counts.wp, counts.nato]
@@ -844,6 +962,13 @@ func _on_phase_skip_pressed() -> void:
 		GameManager.finish_execution_early()
 
 
+func _set_finish_button_visible(visible: bool) -> void:
+	if finish_planning_button.visible == visible:
+		return
+	finish_planning_button.visible = visible
+	_layout_hud()
+
+
 func _on_card_toggle_pressed() -> void:
 	if is_paused:
 		return
@@ -868,18 +993,27 @@ func _sync_loan_button() -> void:
 
 
 func _set_card_panel_open(open: bool) -> void:
-	card_ui.is_panel_open = open
-	card_ui.visible = open
+	card_ui.set_panel_open(open)
 	if not open:
 		card_ui.selected_card_index = -1
-	card_ui.queue_redraw()
 	_sync_card_toggle_button()
+	_layout_hud()
 
 
 func _sync_card_toggle_button() -> void:
 	if card_toggle_button == null:
 		return
 	card_toggle_button.text = "收起卡牌" if card_ui.is_panel_open else "展开卡牌"
+
+
+func _on_tutorial_finished(finished_tutorial: Node) -> void:
+	# 跳过后释放整套教学 UI 与事件订阅，后续操作不会再触发任何教学内容。
+	if tutorial != finished_tutorial:
+		return
+	tutorial = null
+	_clear_action_hint()
+	if is_instance_valid(finished_tutorial):
+		finished_tutorial.queue_free()
 
 
 ## ==================== 关卡加载 ====================
@@ -892,6 +1026,7 @@ func _on_level_started(level_id: int) -> void:
 	var ld = LevelDatabase.get_level(level_id)
 	loan_button.visible = level_id == 1
 	_sync_loan_button()
+	_layout_hud()
 
 	# 天气视觉（雾/雪），按关卡 weather 配置
 	var weather_layer = (load("res://scripts/ui/WeatherLayer.gd") as GDScript).new()
@@ -899,10 +1034,11 @@ func _on_level_started(level_id: int) -> void:
 	add_child(weather_layer)
 	weather_layer.setup(ld.weather)
 
-	# 教学引导：仅第 1 关且本次运行内未完成时启用
+	# 教学引导：仅第 1 关且玩家尚未完成或跳过时启用。
 	if level_id == 0 and not GameManager.tutorial_done and tutorial == null:
 		var tut = (load("res://scripts/ui/TutorialManager.gd") as GDScript).new()
 		tut.name = "TutorialManager"
+		tut.tutorial_finished.connect(_on_tutorial_finished.bind(tut))
 		add_child(tut)
 		tut.setup()
 		tutorial = tut
@@ -935,6 +1071,7 @@ func _on_level_started(level_id: int) -> void:
 	# 读取存档时以保存的动态单位和系统状态覆盖关卡初始值。
 	if not GameManager.apply_pending_save(self):
 		VictoryManager.register_initial_units()
+	FogOfWar.start_level(ld.fog_of_war)
 
 	unit_renderer.queue_redraw()
 	initiative_bar.refresh_units()
@@ -1033,6 +1170,7 @@ func _on_round_event_triggered(event_id: String, data: Dictionary) -> void:
 	unit_renderer.queue_redraw()
 	tile_grid.queue_redraw()
 	initiative_bar.refresh_units()
+	FogOfWar.refresh()
 
 
 func _restore_unit_vision() -> void:
@@ -1065,6 +1203,7 @@ func _spawn_unit_near(unit_type: int, faction: int, preferred: Vector2i) -> Unit
 		var ld = LevelDatabase.get_level(GameManager.current_level_id)
 		if ld and ld.weather == "fog" and TurnManager.current_turn < 4:
 			unit.vision_range = maxi(1, unit.vision_range - maxi(0, ld.weather_vision_penalty))
+		FogOfWar.refresh()
 		BattleLog.add_log("增援抵达：%s (%s)" % [unit.unit_name, GridManager.grid_to_player_coordinate(pos)], Color(1.0, 0.75, 0.25))
 		return unit
 	return null
@@ -1104,11 +1243,12 @@ func _input(event: InputEvent) -> void:
 			# 教学面板上的点击（如"跳过教学"按钮）交给 GUI 处理
 			if tutorial != null and tutorial.is_pointer_over(event.position):
 				return
-			if _is_pointer_over_button(event.position):
-				return
 			if _is_pointer_over_card_panel(event.position):
 				_on_left_click(event.position)
 				get_viewport().set_input_as_handled()
+				return
+			# HUD 控件交给 Godot GUI；不要让地图拖拽逻辑抢走其点击。
+			if _is_pointer_over_interface(event.position):
 				return
 			if event.double_click:
 				# 第二次按下时立即处理，随后忽略对应释放，避免再次选中/规划。
@@ -1137,9 +1277,8 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		if _is_pointer_over_button(event.position):
-			return
-		if tutorial != null and tutorial.is_pointer_over(event.position):
+		if not _is_pointer_over_card_panel(event.position) \
+				and _is_pointer_over_interface(event.position):
 			return
 		_on_right_click(event.position)
 		get_viewport().set_input_as_handled()
@@ -1216,6 +1355,7 @@ func _sync_move_confirmation_buttons() -> void:
 		finish_planning_button.disabled = is_paused or finish_planning_button.disabled
 	if card_toggle_button:
 		card_toggle_button.disabled = is_paused
+	_layout_hud()
 
 
 func _on_confirm_move_pressed() -> void:
@@ -1319,7 +1459,7 @@ func _toggle_fullscreen() -> void:
 
 
 func _is_pointer_over_button(pos: Vector2) -> bool:
-	for button in [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button, loan_button]:
+	for button in [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button, loan_button, battle_log_toggle_button]:
 		if button and button.visible and button.get_global_rect().has_point(pos):
 			return true
 	return false
@@ -1328,15 +1468,17 @@ func _is_pointer_over_button(pos: Vector2) -> bool:
 func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 	if card_ui == null or not card_ui.is_panel_open:
 		return false
-	var vp := get_viewport_rect().size
-	var card_height := minf(CardUI.CARD_HEIGHT, vp.y * 0.28)
-	var help_height := maxf(26.0, card_height * 0.12)
-	var panel_top := vp.y - card_height - 20.0 - help_height - 8.0
-	return pos.y >= panel_top
+	return pos.y >= _get_bottom_ui_top() - 8.0
 
 
 func _is_pointer_over_interface(pos: Vector2) -> bool:
 	return _is_pointer_over_button(pos) or _is_pointer_over_card_panel(pos) \
+		or (status_panel != null and status_panel.visible and status_panel.get_global_rect().has_point(pos)) \
+		or (command_bar != null and command_bar.visible and command_bar.get_global_rect().has_point(pos)) \
+		or (action_hint_panel != null and action_hint_panel.visible and action_hint_panel.get_global_rect().has_point(pos)) \
+		or (battle_log_toggle_button != null and battle_log_toggle_button.visible and battle_log_toggle_button.get_global_rect().has_point(pos)) \
+		or (battle_log_ui != null and battle_log_ui.log_label != null \
+			and battle_log_ui.log_label.visible and battle_log_ui.log_label.get_global_rect().has_point(pos)) \
 		or (tutorial != null and tutorial.is_pointer_over(pos)) \
 		or (initiative_bar != null and initiative_bar.contains_screen_point(pos))
 
@@ -1493,14 +1635,42 @@ func _on_right_click(pos: Vector2) -> void:
 
 func _get_unit_at(col: int, row: int) -> UnitBase:
 	for u in get_tree().get_nodes_in_group("units"):
-		if u.grid_col == col and u.grid_row == row:
+		if u.grid_col == col and u.grid_row == row and FogOfWar.is_unit_visible(u):
 			return u
 	return null
 
 
 func _set_action_hint(message: String) -> void:
-	if action_hint_label:
+	if action_hint_label == null or action_hint_panel == null:
+		return
+	action_hint_panel.visible = true
+	if action_hint_label.text == message:
+		return
+	if action_hint_tween and action_hint_tween.is_valid():
+		action_hint_tween.kill()
+	action_hint_tween = create_tween()
+	action_hint_tween.tween_property(action_hint_label, "modulate:a", 0.0, 0.08)
+	action_hint_tween.tween_callback(func() -> void:
 		action_hint_label.text = message
+	)
+	action_hint_tween.tween_property(action_hint_label, "modulate:a", 1.0, 0.16)
+
+
+func _clear_action_hint() -> void:
+	if action_hint_tween and action_hint_tween.is_valid():
+		action_hint_tween.kill()
+	if action_hint_label:
+		action_hint_label.text = ""
+		action_hint_label.modulate.a = 1.0
+	if action_hint_panel:
+		action_hint_panel.visible = false
+
+
+func _show_planning_hint() -> void:
+	if GameManager.current_level_id == 0 and not GameManager.tutorial_done:
+		_set_action_hint(TUTORIAL_ACTION_HINT)
+	else:
+		_clear_action_hint()
 
 
 ## ==================== 状态回调 ====================
@@ -1538,7 +1708,7 @@ func _on_planning_started(turn: int) -> void:
 	tile_grid.clear_planned_paths()
 	SoundManager.play("round_plan", -4.0)
 	BattleLog.add_phase_log("第%d回合 · 计划阶段" % turn)
-	_set_action_hint("选择己方单位下达命令。蓝格可移动，红色敌军可直接攻击。")
+	_show_planning_hint()
 	_sync_loan_button()
 	initiative_bar.reset_action_states()
 	initiative_bar.refresh_units()
@@ -1608,6 +1778,7 @@ func _on_unit_destroyed(uid: int, _kid: int) -> void:
 	print("[MainScene] 单位%d被摧毁" % uid)
 	tile_grid.remove_planned_path(uid)
 	SoundManager.play("explosion", -2.0)
+	FogOfWar.refresh()
 	unit_renderer.queue_redraw()
 	initiative_bar.refresh_units.call_deferred()
 
@@ -1620,6 +1791,13 @@ func _on_card_used(_card_id: String, _tc: int, _tr: int) -> void:
 
 func _on_emi_changed(new_val: float, _old: float) -> void:
 	print("[MainScene] EMI: %.0f%%" % (new_val * 100))
+	FogOfWar.refresh()
+
+
+func _on_fog_visibility_updated() -> void:
+	tile_grid.queue_redraw()
+	unit_renderer.queue_redraw()
+	fog_renderer.queue_redraw()
 
 func _on_card_drawn(card) -> void:
 	print("[MainScene] 抽到: %s" % card.card_name)

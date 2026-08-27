@@ -2,7 +2,7 @@ extends Node
 ## 教学引导（第 1 关新手教程）
 ## 底部提示条分步引导核心操作闭环：选中单位 → 移动/攻击 → 结束计划 → 观看演绎。
 ## 事件驱动：MainScene 在关键动作后调用 notify()，满足条件才推进；乱序操作自动跳过中间提示。
-## 完成或跳过 → GameManager.tutorial_done = true（本次运行内不再重复引导）。
+## 完成或跳过 → GameManager 写入完成状态，后续启动也不再重复引导。
 
 signal tutorial_finished
 
@@ -122,8 +122,10 @@ func _advance(step: Step) -> void:
 
 
 func _finish() -> void:
+	if _current_step == Step.DONE:
+		return
 	_current_step = Step.DONE
 	if _layer:
 		_layer.visible = false
-	GameManager.tutorial_done = true
+	GameManager.complete_tutorial()
 	tutorial_finished.emit()

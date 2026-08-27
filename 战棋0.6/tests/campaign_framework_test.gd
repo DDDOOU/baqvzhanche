@@ -9,6 +9,14 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	_check(LevelBackgroundRenderer.BACKGROUND_PATHS.size() == 10, "十个关卡应各有一张剧情背景图")
+	var background := LevelBackgroundRenderer.new()
+	for level_id in range(10):
+		background.configure(level_id, null, Rect2i())
+		_check(background.background_texture != null and ResourceLoader.exists(background.get_background_path()),
+			"第%d关剧情背景图应可加载" % (level_id + 1))
+	background.free()
+
 	for level_id in range(2, 10):
 		var path := "res://scenes/levels/level_%02d.tscn" % (level_id + 1)
 		_check(ResourceLoader.exists(path), "第%d关应存在场景文件" % (level_id + 1))
@@ -33,6 +41,9 @@ func _run() -> void:
 	GameManager.confirm_intro()
 	await get_tree().create_timer(0.3).timeout
 	_check(GameManager.current_level_id == 9, "应完整启动第10关")
+	_check(main.background_renderer != null and main.background_renderer.get_theme_id() == 9
+		and main.background_renderer.background_texture != null,
+		"第10关应使用坐标归零主题的底层背景")
 	_check(GridManager.MAP_WIDTH == 20 and GridManager.MAP_HEIGHT == 12, "第10关运行时地图尺寸应正确")
 	_check(get_tree().get_nodes_in_group("units").size() == 25, "第10关应生成13支华约与12支北约单位")
 	_check(is_equal_approx(EMISystem.current_intensity, 1.0), "第10关应从100% EMI开始")

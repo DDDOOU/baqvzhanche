@@ -6,14 +6,18 @@ signal unit_focus_requested(unit_id: int)
 const ALLY_COLOR := Color(0.08, 0.35, 0.68, 0.96)
 const ENEMY_COLOR := Color(0.68, 0.12, 0.12, 0.96)
 const ACTIVE_BORDER := Color(1.0, 0.83, 0.28, 1.0)
+const MAX_VISIBLE_CARDS := 6
 
 var card_row: HBoxContainer
 var order_label: Label
+var previous_button: Button
+var next_button: Button
 var unit_buttons: Dictionary = {}
 var ordered_unit_ids: Array[int] = []
 var active_unit_id: int = -1
 var action_states: Dictionary = {}
 var action_tweens: Dictionary = {}
+var visible_start_index: int = 0
 
 
 func _ready() -> void:
@@ -24,36 +28,41 @@ func _ready() -> void:
 
 func _build_interface() -> void:
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 4)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 4)
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_top", 3)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_bottom", 3)
 	add_child(margin)
 
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 2)
+	column.add_theme_constant_override("separation", 1)
 	margin.add_child(column)
 
 	order_label = Label.new()
-	order_label.text = "行动顺序　高先手 → 低先手"
+	order_label.text = "行动顺序"
 	order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	order_label.add_theme_font_size_override("font_size", 14)
+	order_label.add_theme_font_size_override("font_size", 12)
 	order_label.add_theme_color_override("font_color", Color(0.94, 0.91, 0.8))
 	column.add_child(order_label)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.scroll_horizontal_custom_step = 88.0
-	scroll.tooltip_text = "拖动下方滚动条查看后续单位"
-	column.add_child(scroll)
+	var queue_row := HBoxContainer.new()
+	queue_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	queue_row.add_theme_constant_override("separation", 4)
+	queue_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	queue_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(queue_row)
+
+	previous_button = _make_navigation_button("‹", "查看前面的行动单位")
+	previous_button.pressed.connect(_show_previous_window)
+	queue_row.add_child(previous_button)
 
 	card_row = HBoxContainer.new()
 	card_row.add_theme_constant_override("separation", 5)
-	scroll.add_child(card_row)
-	scroll.get_h_scroll_bar().custom_minimum_size.y = 10
+	queue_row.add_child(card_row)
+
+	next_button = _make_navigation_button("›", "查看后续行动单位")
+	next_button.pressed.connect(_show_next_window)
+	queue_row.add_child(next_button)
 
 
 func refresh_units() -> void:
@@ -74,7 +83,8 @@ func refresh_units() -> void:
 		var card := _make_unit_card(unit, index + 1)
 		card_row.add_child(card)
 		unit_buttons[unit.unit_id] = card
-	order_label.text = "行动顺序（%d）　高先手 → 低先手" % units.size()
+	visible_start_index = clampi(visible_start_index, 0, maxi(0, units.size() - MAX_VISIBLE_CARDS))
+	_update_card_window()
 	set_active_unit(active_unit_id)
 
 
@@ -84,8 +94,57 @@ func get_ordered_unit_ids() -> Array[int]:
 
 func set_active_unit(unit_id: int) -> void:
 	active_unit_id = unit_id
+	var active_index := ordered_unit_ids.find(unit_id)
+	if active_index >= 0 and (active_index < visible_start_index \
+			or active_index >= visible_start_index + MAX_VISIBLE_CARDS):
+		visible_start_index = clampi(active_index - int(MAX_VISIBLE_CARDS / 2),
+			0, maxi(0, ordered_unit_ids.size() - MAX_VISIBLE_CARDS))
+	_update_card_window()
 	for id in unit_buttons.keys():
 		_apply_button_visual(int(id))
+
+
+func _make_navigation_button(glyph: String, tooltip: String) -> Button:
+	var button := Button.new()
+	button.text = glyph
+	button.tooltip_text = tooltip
+	button.custom_minimum_size = Vector2(24, 42)
+	button.add_theme_font_size_override("font_size", 22)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.add_theme_stylebox_override("normal", _make_card_style(Color(0.12, 0.14, 0.18, 0.9), Color(0.40, 0.44, 0.50, 0.9), 1))
+	button.add_theme_stylebox_override("hover", _make_card_style(Color(0.19, 0.23, 0.29, 0.96), Color(0.80, 0.84, 0.88, 1.0), 1))
+	return button
+
+
+func _show_previous_window() -> void:
+	visible_start_index = maxi(0, visible_start_index - MAX_VISIBLE_CARDS)
+	_update_card_window()
+
+
+func _show_next_window() -> void:
+	visible_start_index = mini(maxi(0, ordered_unit_ids.size() - MAX_VISIBLE_CARDS),
+		visible_start_index + MAX_VISIBLE_CARDS)
+	_update_card_window()
+
+
+func _update_card_window() -> void:
+	var total := ordered_unit_ids.size()
+	if total == 0:
+		order_label.text = "行动顺序"
+		return
+	var max_start := maxi(0, total - MAX_VISIBLE_CARDS)
+	visible_start_index = clampi(visible_start_index, 0, max_start)
+	var end_index := mini(total, visible_start_index + MAX_VISIBLE_CARDS)
+	for index in range(total):
+		var unit_id := ordered_unit_ids[index]
+		var button := unit_buttons.get(unit_id) as Button
+		if button:
+			button.visible = index >= visible_start_index and index < end_index
+	if previous_button:
+		previous_button.disabled = visible_start_index <= 0
+	if next_button:
+		next_button.disabled = end_index >= total
+	order_label.text = "行动 %d-%d / %d" % [visible_start_index + 1, end_index, total]
 
 
 func reset_action_states() -> void:
@@ -101,9 +160,7 @@ func set_unit_acting(unit_id: int) -> void:
 		return
 	var state_changed := String(action_states.get(unit_id, "pending")) != "acting"
 	action_states[unit_id] = "acting"
-	active_unit_id = unit_id
-	for id in unit_buttons.keys():
-		_apply_button_visual(int(id))
+	set_active_unit(unit_id)
 	if state_changed:
 		SoundManager.play("initiative_active", -9.0)
 
@@ -137,7 +194,7 @@ func contains_screen_point(screen_position: Vector2) -> bool:
 
 func _make_unit_card(unit: UnitBase, order_number: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(96, 52)
+	button.custom_minimum_size = Vector2(84, 42)
 	button.text = "%02d　先手%d\n%s" % [order_number, unit.initiative, _short_name(unit.unit_name)]
 	button.set_meta("base_text", button.text)
 	button.clip_text = true
@@ -147,7 +204,7 @@ func _make_unit_card(unit: UnitBase, order_number: int) -> Button:
 		unit.initiative,
 		unit.move_speed,
 	]
-	button.add_theme_font_size_override("font_size", 13)
+	button.add_theme_font_size_override("font_size", 12)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.pressed.connect(func() -> void:
 		set_active_unit(unit.unit_id)
@@ -242,7 +299,7 @@ func _make_card_style(fill: Color, border: Color, width: int) -> StyleBoxFlat:
 
 func _make_panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.04, 0.05, 0.91)
+	style.bg_color = Color(0.035, 0.04, 0.05, 0.84)
 	style.border_color = Color(0.46, 0.49, 0.53, 0.9)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(5)

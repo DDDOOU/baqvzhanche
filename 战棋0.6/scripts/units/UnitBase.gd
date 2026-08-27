@@ -237,6 +237,7 @@ func set_grid_position(col: int, row: int) -> void:
 		new_cell.occupant_unit = self
 	var world_pos = GridManager.grid_to_world(col, row)
 	position = world_pos
+	FogOfWar.refresh()
 
 
 func can_move_to(col: int, row: int) -> bool:
@@ -337,6 +338,7 @@ func _on_death(_killer_id: int) -> void:
 	var cell = GridManager.get_cell(grid_col, grid_row)
 	if cell:
 		cell.occupant_unit = null
+	FogOfWar.refresh()
 	queue_free()
 
 

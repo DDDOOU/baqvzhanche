@@ -194,6 +194,8 @@ func _draw() -> void:
 	for unit in Engine.get_main_loop().get_nodes_in_group("units"):
 		if not unit.is_alive:
 			continue
+		if not FogOfWar.is_unit_visible(unit):
+			continue
 		var pos: Vector2 = _get_unit_screen_pos(unit)
 # 视口裁剪（与 TileGridRenderer._is_on_screen 行为一致，留 60px 边距）
 		if pos.x < -60 or pos.x > viewport_size.x + 60 \
@@ -207,7 +209,7 @@ func _draw() -> void:
 		_draw_unit(unit, pos)
 
 	# 绘制选中的单位轮廓
-	if selected_unit and selected_unit.is_alive:
+	if selected_unit and selected_unit.is_alive and FogOfWar.is_unit_visible(selected_unit):
 		_draw_selection_indicator(selected_unit)
 
 

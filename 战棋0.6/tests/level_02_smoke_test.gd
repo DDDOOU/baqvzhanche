@@ -20,6 +20,9 @@ func _run() -> void:
 	await get_tree().create_timer(0.3).timeout
 
 	_check(GridManager.MAP_WIDTH == 20 and GridManager.MAP_HEIGHT == 12, "第2关地图应为20×12")
+	_check(main.background_renderer != null and main.background_renderer.get_theme_id() == 1
+		and main.background_renderer.background_texture != null,
+		"第2关应使用铁路线主题的底层背景")
 	_check(TurnManager.max_turns == 10, "第2关应在第10回合结算")
 	_check(get_tree().get_nodes_in_group("units").size() == 15, "第2关应生成15支初始单位")
 	_check(GridManager.vp_cells.size() == 3, "第2关应有3个铁路VP")

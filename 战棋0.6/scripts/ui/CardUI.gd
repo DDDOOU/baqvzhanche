@@ -12,6 +12,10 @@ extends Control
 const CARD_WIDTH: float = 160.0
 const CARD_HEIGHT: float = 220.0
 const CARD_SPACING: float = 12.0
+const CARD_ARC_DEPTH: float = 18.0
+const CARD_ARC_ROTATION_DEGREES: float = 4.0
+const CARD_HOVER_LIFT: float = 18.0
+const CARD_MAX_VISUAL_LIFT: float = 38.0
 
 ## === 颜色配置 ===
 const CARD_COLORS: Dictionary = {
@@ -24,9 +28,14 @@ const CARD_COLORS: Dictionary = {
 ## === 状态 ===
 var selected_card_index: int = -1
 var is_panel_open: bool = false
+var is_panel_rendered: bool = false
+var panel_offset_y: float = 0.0
 var selected_card_lift: float = 0.0
 var selected_card_pulse: float = 0.0
+var hovered_card_index: int = -1
+var hover_visual_lift: float = 0.0
 var card_feedback_tween: Tween
+var panel_tween: Tween
 
 
 func _ready() -> void:
@@ -46,7 +55,18 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	# 自绘卡面不会因 Tween 属性变化自动重绘；仅在卡牌反馈期间逐帧刷新。
-	if card_feedback_tween and card_feedback_tween.is_valid():
+	var next_hover := -1
+	if is_panel_open and is_panel_rendered:
+		next_hover = get_card_at_pos(get_viewport().get_mouse_position())
+	if next_hover != hovered_card_index:
+		hovered_card_index = next_hover
+		queue_redraw()
+	var target_hover_lift := CARD_HOVER_LIFT if hovered_card_index >= 0 else 0.0
+	var previous_hover_lift := hover_visual_lift
+	hover_visual_lift = move_toward(hover_visual_lift, target_hover_lift, _delta * 180.0)
+	if not is_equal_approx(previous_hover_lift, hover_visual_lift) \
+			or (card_feedback_tween and card_feedback_tween.is_valid()) \
+			or (panel_tween and panel_tween.is_valid()):
 		queue_redraw()
 
 
@@ -58,7 +78,7 @@ func _get_card_size() -> Vector2:
 	# 卡牌尺寸自适应窗口
 	var vp = _get_view_size()
 	var w = minf(CARD_WIDTH, vp.x * 0.10)
-	var h = minf(CARD_HEIGHT, vp.y * 0.28)
+	var h = minf(CARD_HEIGHT, vp.y * 0.25)
 	return Vector2(w, h)
 
 
@@ -67,13 +87,55 @@ func _get_card_spacing() -> float:
 	return minf(CARD_SPACING, _get_card_size().x * 0.08)
 
 
+func get_panel_top() -> float:
+	# 说明栏为卡牌的弧线、旋转及悬停上抬预留固定安全区。
+	var vp := _get_view_size()
+	var cs := _get_card_size()
+	var card_top := vp.y - cs.y - 20.0 - CARD_ARC_DEPTH + panel_offset_y
+	var help_height := maxf(26.0, cs.y * 0.12)
+	return card_top - CARD_MAX_VISUAL_LIFT - help_height
+
+
+func _get_card_layout(index: int, count: int, cs: Vector2) -> Dictionary:
+	var center_index := (float(count) - 1.0) * 0.5
+	var half_span := maxf(center_index, 1.0)
+	var normalized := (float(index) - center_index) / half_span if count > 1 else 0.0
+	var spacing := _get_card_spacing()
+	var base_center := Vector2(
+		_get_view_size().x * 0.5 + (float(index) - center_index) * (cs.x + spacing),
+		_get_view_size().y - 20.0 - cs.y * 0.5 - CARD_ARC_DEPTH + absf(normalized) * CARD_ARC_DEPTH + panel_offset_y)
+	var lift := selected_card_lift if index == selected_card_index else 0.0
+	var scale := 1.0
+	if index == selected_card_index:
+		scale += 0.025
+	if index == hovered_card_index:
+		lift += hover_visual_lift
+		scale += 0.045 * (hover_visual_lift / CARD_HOVER_LIFT)
+	base_center.y -= lift
+	return {
+		"center": base_center,
+		"rotation": deg_to_rad(normalized * CARD_ARC_ROTATION_DEGREES),
+		"scale": scale,
+	}
+
+
+func _draw_card_at_layout(card, index: int, layout: Dictionary, cs: Vector2) -> void:
+	draw_set_transform(layout.center, float(layout.rotation), Vector2.ONE * float(layout.scale))
+	_draw_card(Rect2(-cs * 0.5, cs), card, index)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _is_point_in_card_layout(mouse_pos: Vector2, layout: Dictionary, cs: Vector2) -> bool:
+	var local_pos: Vector2 = (mouse_pos - layout.center).rotated(-float(layout.rotation)) \
+		/ float(layout.scale) + cs * 0.5
+	return Rect2(Vector2.ZERO, cs).has_point(local_pos)
+
+
 func _draw() -> void:
-	if not is_panel_open:
+	if not is_panel_rendered:
 		return
 
 	var cs = _get_card_size()
-	var sp = _get_card_spacing()
-
 	# 操作说明栏（卡牌上方）
 	_draw_help_bar(cs)
 
@@ -82,30 +144,30 @@ func _draw() -> void:
 		_draw_empty_hand()
 		return
 
-	var vp = _get_view_size()
-	var total_width = hand.size() * (cs.x + sp) - sp
-	var start_x = (vp.x - total_width) / 2.0
-	var card_y = vp.y - cs.y - 20.0
-
+	# 普通牌先绘制，选中牌与悬停牌最后绘制，确保突出卡不会被相邻牌遮住。
 	for i in range(hand.size()):
-		var card = hand[i]
-		var x = start_x + i * (cs.x + sp)
-		var y: float = card_y - selected_card_lift if i == selected_card_index else card_y
-		_draw_card(Rect2(x, y, cs.x, cs.y), card, i)
+		if i != selected_card_index and i != hovered_card_index:
+			_draw_card_at_layout(hand[i], i, _get_card_layout(i, hand.size(), cs), cs)
+	if selected_card_index >= 0 and selected_card_index < hand.size():
+		_draw_card_at_layout(hand[selected_card_index], selected_card_index,
+			_get_card_layout(selected_card_index, hand.size(), cs), cs)
+	if hovered_card_index >= 0 and hovered_card_index < hand.size() \
+			and hovered_card_index != selected_card_index:
+		_draw_card_at_layout(hand[hovered_card_index], hovered_card_index,
+			_get_card_layout(hovered_card_index, hand.size(), cs), cs)
 
 
 func _draw_help_bar(cs: Vector2) -> void:
 	# 绘制卡牌上方操作提示栏
 	var vp = _get_view_size()
-	var card_y = vp.y - cs.y - 20.0
-	var bar_y = card_y - maxf(26.0, cs.y * 0.12)
+	var bar_y = get_panel_top()
 	# 栏宽跟随视口，最大720
 	var bar_w = minf(720.0, vp.x * 0.85)
 	var bar_x = (vp.x - bar_w) / 2.0
 	var bar_h = maxf(22.0, cs.y * 0.10)
 
 	# 半透明背景栏
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0, 0, 0, 0.75), true)
+	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0, 0, 0, 0.64), true)
 	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.5, 0.5, 0.6, 0.8), false, 1)
 
 	var hand = CardSystem.hand
@@ -116,10 +178,10 @@ func _draw_help_bar(cs: Vector2) -> void:
 	# 已选中卡牌 → 提示去地图点目标
 	if selected_card_index >= 0 and selected_card_index < hand.size():
 		var card = hand[selected_card_index]
-		help_text = "已选中《%s》：点击地图目标格使用 | 右键空白处取消" % card.card_name
+		help_text = "《%s》待使用" % card.card_name
 		help_color = Color.YELLOW
 	else:
-		help_text = "左键选牌，点击地图使用；右键点卡牌弃牌；Tab 开关面板"
+		help_text = "左键选择 · 右键弃牌"
 
 	draw_string(ThemeDB.fallback_font,
 		Vector2(bar_x + 10, bar_y + bar_h * 0.72),
@@ -141,7 +203,7 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 
 	# 内部字号、间距随卡片尺寸缩放
 	var title_font = int(maxf(10.0, rect.size.x * 0.08))
-	var desc_font = int(maxf(8.0, rect.size.x * 0.06))
+	var desc_font = int(maxf(9.0, rect.size.x * 0.068))
 	var cost_font = int(maxf(9.0, rect.size.x * 0.07))
 
 	# 选中高亮
@@ -178,8 +240,8 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 		draw_rect(top_bar, Color(0.0, 0.0, 0.0, 0.45), true)
 		# 底部遮罩条（保证描述可读）
 		var bot_bar := Rect2(
-			rect.position + Vector2(0, rect.size.y * 0.70),
-			Vector2(rect.size.x, rect.size.y * 0.30))
+			rect.position + Vector2(0, rect.size.y * 0.68),
+			Vector2(rect.size.x, rect.size.y * 0.32))
 		draw_rect(bot_bar, Color(0.0, 0.0, 0.0, 0.55), true)
 	# 卡牌名称
 	draw_string(ThemeDB.fallback_font,
@@ -199,8 +261,8 @@ func _draw_card(rect: Rect2, card, index: int) -> void:
 
 	# 效果描述（底部遮罩条内）
 	var desc_rect := Rect2(
-		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.74),
-		Vector2(rect.size.x * 0.88, rect.size.y * 0.22)
+		rect.position + Vector2(rect.size.x * 0.06, rect.size.y * 0.72),
+		Vector2(rect.size.x * 0.88, rect.size.y * 0.24)
 	)
 	_draw_wrapped_text(desc_rect, str(card.data.get("description", "")),
 		desc_font, Color.WHITE.darkened(0.2))
@@ -296,12 +358,36 @@ func _get_card_art(card) -> Texture2D:
 
 ## === 交互 ===
 func toggle_panel() -> void:
-	is_panel_open = not is_panel_open
-	visible = is_panel_open
-	if is_panel_open:
+	set_panel_open(not is_panel_open)
+
+
+func set_panel_open(open: bool) -> void:
+	if panel_tween and panel_tween.is_valid():
+		panel_tween.kill()
+	is_panel_open = open
+	if open:
+		is_panel_rendered = true
+		visible = true
+		panel_offset_y = 52.0
+		modulate.a = 0.0
 		selected_card_index = -1
+		hovered_card_index = -1
+		hover_visual_lift = 0.0
 		selected_card_lift = 0.0
 		selected_card_pulse = 0.0
+		panel_tween = create_tween().set_parallel(true)
+		panel_tween.tween_property(self, "panel_offset_y", 0.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		panel_tween.tween_property(self, "modulate:a", 1.0, 0.18)
+	else:
+		panel_tween = create_tween().set_parallel(true)
+		panel_tween.tween_property(self, "panel_offset_y", 52.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		panel_tween.tween_property(self, "modulate:a", 0.0, 0.14)
+		panel_tween.chain().tween_callback(func() -> void:
+			is_panel_rendered = false
+			visible = false
+			modulate.a = 1.0
+			queue_redraw()
+		)
 	queue_redraw()
 
 
@@ -311,17 +397,22 @@ func get_card_at_pos(mouse_pos: Vector2) -> int:
 		return -1
 
 	var hand = CardSystem.hand
-	var vp = _get_view_size()
 	var cs = _get_card_size()
-	var sp = _get_card_spacing()
-	var total_width = hand.size() * (cs.x + sp) - sp
-	var start_x = (vp.x - total_width) / 2.0
-	var card_y = vp.y - cs.y - 20.0
-
-	for i in range(hand.size()):
-		var x = start_x + i * (cs.x + sp)
-		var rect = Rect2(x, card_y, cs.x, cs.y)
-		if rect.has_point(mouse_pos):
+	# 命中顺序必须与绘制层级一致：悬停牌、选中牌、其余普通牌。
+	if hovered_card_index >= 0 and hovered_card_index < hand.size():
+		if _is_point_in_card_layout(mouse_pos,
+			_get_card_layout(hovered_card_index, hand.size(), cs), cs):
+			return hovered_card_index
+	if selected_card_index >= 0 and selected_card_index < hand.size() \
+			and selected_card_index != hovered_card_index:
+		if _is_point_in_card_layout(mouse_pos,
+			_get_card_layout(selected_card_index, hand.size(), cs), cs):
+			return selected_card_index
+	for i in range(hand.size() - 1, -1, -1):
+		if i == selected_card_index or i == hovered_card_index:
+			continue
+		var layout := _get_card_layout(i, hand.size(), cs)
+		if _is_point_in_card_layout(mouse_pos, layout, cs):
 			return i
 	return -1
 
