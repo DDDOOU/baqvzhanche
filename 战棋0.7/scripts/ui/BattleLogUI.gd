@@ -16,8 +16,9 @@ var log_label: RichTextLabel
 
 
 func _ready() -> void:
-	# Control 在 Node2D 父节点下：忽略鼠标，否则会拦截点击
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# PASS：让命中测试能进入子树，使 log_label 收到滚轮事件；
+	# 自身无 size 不会被命中，点击事件穿透给战场，不影响选单位。
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 	_layout()
 
@@ -39,7 +40,8 @@ func _layout() -> void:
 		log_label.bbcode_enabled = true
 		log_label.scroll_following = true
 		log_label.selection_enabled = false
-		log_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# PASS：接收滚轮事件以支持上下滚动，同时不吞掉点击（仍可穿透给战场）
+		log_label.mouse_filter = Control.MOUSE_FILTER_PASS
 		log_label.add_theme_font_size_override("normal_font_size", 15)
 		log_label.add_theme_stylebox_override("normal", _make_bg_stylebox())
 		add_child(log_label)
@@ -68,3 +70,10 @@ func _refresh() -> void:
 		var hex = entry.color.to_html(false)
 		bb += "[color=#%s]T%d %s[/color]\n" % [hex, entry.turn, entry.text]
 	log_label.text = bb
+
+
+## 供 MainScene 查询：鼠标是否落在战报面板上（用于让滚轮事件交给战报而非缩放地图）
+func is_pointer_over_log(pos: Vector2) -> bool:
+	if log_label == null or not log_label.visible:
+		return false
+	return log_label.get_global_rect().has_point(pos)

@@ -37,6 +37,7 @@ var briefing_panel: CanvasLayer = null   # 任务简报浮窗（LEVEL_INTRO）
 var tutorial: Node = null                # 教学引导（第1关新手教程）
 var hud_layer: CanvasLayer = null        # 主HUD层（隐藏/恢复关卡内UI）
 var card_ui_layer: CanvasLayer = null    # 卡牌UI层
+var battle_log_ui: BattleLogUI = null    # 战报面板（用于滚轮区域判断）
 var intro_story_layer: CanvasLayer = null # 第1、2关开场剧情对话框
 var mission_briefing_layer: CanvasLayer = null # 第1、2关任务要求提示框
 var story_dialog: StoryDialog = null     # 剧情对话框（关卡内人物对白/旁白）
@@ -423,7 +424,7 @@ func _setup_ui() -> void:
 	_create_victory_progress_panel(hud)
 	_create_pause_overlay()
 
-	var battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
+	battle_log_ui = preload("res://scripts/ui/BattleLogUI.gd").new()
 	hud.add_child(battle_log_ui)
 
 	# 剧情对话框：显示关卡中的人物对白/旁白，不参与任何战斗逻辑。
@@ -1387,7 +1388,8 @@ func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 func _is_pointer_over_interface(pos: Vector2) -> bool:
 	return _is_pointer_over_button(pos) or _is_pointer_over_card_panel(pos) \
 		or (tutorial != null and tutorial.is_pointer_over(pos)) \
-		or (initiative_bar != null and initiative_bar.contains_screen_point(pos))
+		or (initiative_bar != null and initiative_bar.contains_screen_point(pos)) \
+		or (battle_log_ui != null and battle_log_ui.is_pointer_over_log(pos))
 
 
 func _focus_camera_on_unit(unit_id: int) -> void:
