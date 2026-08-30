@@ -1388,7 +1388,11 @@ func _toggle_fullscreen() -> void:
 
 
 func _is_pointer_over_button(pos: Vector2) -> bool:
-	for button in [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button, loan_button]:
+	var buttons: Array = [finish_planning_button, card_toggle_button, pause_button, confirm_move_button, cancel_move_button, loan_button]
+	# 战报收起/展开按钮也需要放行给 GUI，否则点击会被地图拖拽逻辑吞掉，导致战报无法收起。
+	if battle_log_ui != null and battle_log_ui.toggle_button != null:
+		buttons.append(battle_log_ui.toggle_button)
+	for button in buttons:
 		if button and button.visible and button.get_global_rect().has_point(pos):
 			return true
 	return false
