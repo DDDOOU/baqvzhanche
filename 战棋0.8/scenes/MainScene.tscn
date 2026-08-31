@@ -5,6 +5,8 @@
 [ext_resource type="Script" uid="uid://chg58dcsqtccq" path="res://scripts/ui/UnitRenderer.gd" id="3_unit"]
 [ext_resource type="Script" uid="uid://brf04qosns2uc" path="res://scripts/ui/CardUI.gd" id="4_card"]
 [ext_resource type="Script" path="res://scripts/ui/CardEffectRenderer.gd" id="5_card_fx"]
+[ext_resource type="Script" path="res://scripts/ui/FogOfWarRenderer.gd" id="6_fog"]
+[ext_resource type="Script" path="res://scripts/ui/LevelBackgroundRenderer.gd" id="7_background"]
 
 [node name="MainScene" type="Node2D" unique_id=951679098]
 texture_filter = 1
@@ -13,11 +15,17 @@ script = ExtResource("1_main")
 [node name="Camera2D" type="Camera2D" parent="." unique_id=2063812524]
 position = Vector2(960, 540)
 
+[node name="LevelBackgroundRenderer" type="Node2D" parent="."]
+script = ExtResource("7_background")
+
 [node name="TileGridRenderer" type="Node2D" parent="." unique_id=124114763]
 script = ExtResource("2_tile")
 
 [node name="UnitRenderer" type="Node2D" parent="." unique_id=1762196762]
 script = ExtResource("3_unit")
+
+[node name="FogOfWarRenderer" type="Node2D" parent="."]
+script = ExtResource("6_fog")
 
 [node name="CardEffectRenderer" type="Node2D" parent="."]
 texture_filter = 1

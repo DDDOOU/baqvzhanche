@@ -8,11 +8,12 @@ var _drift_time: float = 0.0
 
 
 func setup(weather: String) -> void:
-	## weather: "clear"（无） / "fog"（晨雾） / "snow"（冷雾，白色走廊）
+	## weather: "clear"（无） / "fog"（仅保留数值机制） / "snow"（冷雾，白色走廊）
 	layer = 70
 	match weather:
 		"fog":
-			_build(Color(0.93, 0.94, 0.96), 0.16)
+			# 晨雾仍由关卡逻辑降低视野和命中；不再用全屏视觉层遮挡棋盘。
+			queue_free()
 		"snow":
 			_build(Color(0.86, 0.9, 0.98), 0.22)
 		_:

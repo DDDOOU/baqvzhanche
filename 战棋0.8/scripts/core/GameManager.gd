@@ -42,7 +42,7 @@ var runtime_map_size: Vector2i = Vector2i(40, 45)
 var execution_skip_requested: bool = false
 var pending_save_data: Dictionary = {}
 var _intro_confirm_requested: bool = false   # 简报确认标志（LEVEL_INTRO 等待玩家点击）
-var tutorial_done: bool = false              # 教学引导是否已完成/跳过（本次运行内有效）
+var tutorial_done: bool = false              # 教学引导是否已完成/跳过（跨启动保留）
 var _pending_game_over: Dictionary = {}      # 即时胜负挂起 {winner, reason} — 演绎结束后统一结算
 
 ## === Bug追踪与版本控制 ===
@@ -53,15 +53,35 @@ var build_number: int = 8
 ## 存档结构版本 — 与 version 分离: 结构变更(字段增删/格式改动)时递增,
 ## 语义版本不变也需迁移。加载时严格校验, 防止跨版本静默错读。
 const SAVE_VERSION: int = 1
+const PLAYER_SETTINGS_PATH := "user://player_settings.cfg"
 
 
 func _ready() -> void:
+	_load_player_settings()
 	_ensure_default_input_actions()
 	# 初始化所有子系统
 	_initialize_subsystems()
 	# 设置进程优先级
 	process_priority = 100
 	print("[GameManager] Silent Reckoning·1987 v%s (build %d) 已启动" % [version, build_number])
+
+
+func _load_player_settings() -> void:
+	var settings := ConfigFile.new()
+	if settings.load(PLAYER_SETTINGS_PATH) != OK:
+		return
+	tutorial_done = bool(settings.get_value("onboarding", "tutorial_done", false))
+
+
+func complete_tutorial() -> void:
+	if tutorial_done:
+		return
+	tutorial_done = true
+	var settings := ConfigFile.new()
+	settings.load(PLAYER_SETTINGS_PATH)
+	settings.set_value("onboarding", "tutorial_done", true)
+	if settings.save(PLAYER_SETTINGS_PATH) != OK:
+		push_warning("[GameManager] 无法保存教学完成状态")
 
 
 func _ensure_default_input_actions() -> void:

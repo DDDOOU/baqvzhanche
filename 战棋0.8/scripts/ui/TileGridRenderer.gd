@@ -96,22 +96,23 @@ func _draw() -> void:
 			var cell = GridManager.get_cell(col, row)
 			if draw_terrain:
 				_draw_iso_tile(col, row, cell)
+			var is_fogged: bool = FogOfWar.enabled and not cell.is_visible
 			var key := "%d,%d" % [col, row]
-			if building_highlight.has(key):
+			if not is_fogged and building_highlight.has(key):
 				var building_owner: int = building_highlight[key]
 				var owner_color := HL_BUILDING_FRIENDLY if building_owner == UnitBase.Faction.WARSAW_PACT else HL_BUILDING_ENEMY
 				_draw_iso_highlight(col, row, owner_color)
-			if highlight.has(key):
+			if not is_fogged and highlight.has(key):
 				_draw_iso_highlight(col, row, highlight[key])
-			if pending_path_highlight.has(key):
+			if not is_fogged and pending_path_highlight.has(key):
 				_draw_iso_highlight(col, row, HL_PATH)
-			if hover_path_highlight.has(key):
+			if not is_fogged and hover_path_highlight.has(key):
 				_draw_iso_highlight(col, row, HL_HOVER_PATH)
-			if card_highlight.has(key):
+			if not is_fogged and card_highlight.has(key):
 				_draw_iso_highlight(col, row, card_highlight[key])
-			if hover_cell == Vector2i(col, row):
+			if not is_fogged and hover_cell == Vector2i(col, row):
 				_draw_iso_highlight(col, row, HL_HOVER)
-			if cell.marker != GridManager.CellMarker.NONE:
+			if not is_fogged and cell.marker != GridManager.CellMarker.NONE:
 				_draw_iso_marker(col, row, cell.marker)
 
 	_draw_planned_paths()
@@ -173,6 +174,8 @@ func highlight_unit_actions(unit: UnitBase) -> void:
 		highlight["%d,%d" % [p.x, p.y]] = HL_MOVE
 	for candidate in get_tree().get_nodes_in_group("units"):
 		if not candidate is UnitBase or not candidate.is_alive or candidate.faction == unit.faction:
+			continue
+		if not FogOfWar.is_unit_visible(candidate):
 			continue
 		if unit.can_attack_target(candidate.grid_col, candidate.grid_row):
 			highlight["%d,%d" % [candidate.grid_col, candidate.grid_row]] = HL_ATTACK
@@ -241,13 +244,18 @@ func _draw_planned_paths() -> void:
 		for step_variant in path:
 			var step: Vector2i = step_variant
 			var center := _get_iso_screen_center(step.x, step.y)
+			if FogOfWar.enabled and (not _is_cell_visible(previous) or not _is_cell_visible(step)):
+				previous = step
+				previous_center = center
+				continue
 			draw_line(previous_center, center, PLANNED_PATH_COLOR,
 				maxf(2.0, 4.0 * camera_zoom), true)
 			draw_circle(center, maxf(2.5, 4.5 * camera_zoom), PLANNED_PATH_COLOR)
 			previous_center = center
 		# 终点使用较大的圆环，区别于尚未确认的绿色格子高亮。
-		draw_circle(previous_center, maxf(5.0, 8.0 * camera_zoom),
-			PLANNED_PATH_COLOR, false, maxf(1.5, 2.5 * camera_zoom))
+		if not FogOfWar.enabled or _is_cell_visible(previous):
+			draw_circle(previous_center, maxf(5.0, 8.0 * camera_zoom),
+				PLANNED_PATH_COLOR, false, maxf(1.5, 2.5 * camera_zoom))
 
 
 func clear_highlights() -> void:
@@ -347,6 +355,11 @@ func _draw_iso_marker(col: int, row: int, marker: int) -> void:
 		GridManager.CellMarker.UNKNOWN_CONTACT:
 			draw_string(ThemeDB.fallback_font, center + Vector2(-4, 5), "?",
 				HORIZONTAL_ALIGNMENT_CENTER, -1, 12, color)
+
+
+func _is_cell_visible(position: Vector2i) -> bool:
+	var cell = GridManager.get_cell(position.x, position.y)
+	return cell != null and cell.is_visible
 
 func _draw_iso_tile(col: int, row: int, cell) -> void:
 	var atlas_position: Vector2i = TERRAIN_ATLAS.get(

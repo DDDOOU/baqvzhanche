@@ -5,6 +5,8 @@ extends Node2D
 
 @onready var tile_grid: TileGridRenderer = $TileGridRenderer
 @onready var unit_renderer: UnitRenderer = $UnitRenderer
+@onready var fog_renderer: FogOfWarRenderer = $FogOfWarRenderer
+@onready var background_renderer: LevelBackgroundRenderer = $LevelBackgroundRenderer
 @onready var card_effect_renderer: CardEffectRenderer = $CardEffectRenderer
 @onready var card_ui: CardUI = $CardUI
 @onready var camera: Camera2D = $Camera2D
@@ -141,6 +143,8 @@ func _load_designed_level(level_id: int) -> void:
 	tile_grid.use_source_tilemap(level_terrain, level_used_rect)
 	tile_grid.set_building_highlights(building_owner_by_cell)
 	unit_renderer.use_source_tilemap(level_terrain, level_used_rect)
+	fog_renderer.use_source_tilemap(level_terrain, level_used_rect)
+	background_renderer.configure(level_id, level_terrain, level_used_rect)
 	card_effect_renderer.use_source_tilemap(level_terrain, level_used_rect)
 	print("[MainScene] 使用设计关卡 %s，地图尺寸=%dx%d，原始起点=(%d,%d)" % [
 		scene_path, level_used_rect.size.x, level_used_rect.size.y,
@@ -281,6 +285,8 @@ func _apply_camera_transform() -> void:
 	var offset := base_camera_offset + camera_pan
 	tile_grid.set_camera(offset, zoom)
 	unit_renderer.set_camera(offset, zoom)
+	fog_renderer.set_camera(offset, zoom)
+	background_renderer.set_camera(offset, zoom)
 	if level_scene_instance and level_terrain:
 		var level_scale := 2.0 * zoom
 		level_scene_instance.scale = Vector2.ONE * level_scale
@@ -321,6 +327,7 @@ func _connect_signals() -> void:
 	MovementSystem.unit_step.connect(_on_unit_step)
 	MovementSystem.unit_move_completed.connect(_on_unit_move_completed)
 	MovementSystem.unit_step_animation_requested.connect(_on_unit_step_animation_requested)
+	FogOfWar.visibility_updated.connect(_on_fog_visibility_updated)
 
 
 ## ==================== HUD ====================
@@ -907,8 +914,7 @@ func _sync_loan_button() -> void:
 
 
 func _set_card_panel_open(open: bool) -> void:
-	card_ui.is_panel_open = open
-	card_ui.visible = open
+	card_ui.set_panel_open(open)
 	if not open:
 		card_ui.selected_card_index = -1
 	card_ui.queue_redraw()
@@ -972,6 +978,7 @@ func _on_level_started(level_id: int) -> void:
 		UnitDatabase.create_unit(cfg["type"], UnitBase.Faction.NATO, cfg["col"], cfg["row"], self)
 
 	_apply_level_start_effects(ld)
+	FogOfWar.start_level(ld.fog_of_war)
 
 	# 手牌和事件
 	CardSystem.initialize_level(ld.wp_starting_cards)
@@ -986,6 +993,7 @@ func _on_level_started(level_id: int) -> void:
 		VictoryManager.register_initial_units()
 
 	unit_renderer.queue_redraw()
+	fog_renderer.queue_redraw()
 	initiative_bar.refresh_units()
 	call_deferred("_focus_camera_on_initial_player_deployment")
 
@@ -1402,9 +1410,7 @@ func _is_pointer_over_card_panel(pos: Vector2) -> bool:
 	if card_ui == null or not card_ui.is_panel_open:
 		return false
 	var vp := get_viewport_rect().size
-	var card_height := minf(CardUI.CARD_HEIGHT, vp.y * 0.28)
-	var help_height := maxf(26.0, card_height * 0.12)
-	var panel_top := vp.y - card_height - 20.0 - help_height - 8.0
+	var panel_top := card_ui.get_panel_top() - 8.0
 	return pos.y >= panel_top
 
 
@@ -1570,7 +1576,7 @@ func _on_right_click(pos: Vector2) -> void:
 
 func _get_unit_at(col: int, row: int) -> UnitBase:
 	for u in get_tree().get_nodes_in_group("units"):
-		if u.grid_col == col and u.grid_row == row:
+		if u.grid_col == col and u.grid_row == row and FogOfWar.is_unit_visible(u):
 			return u
 	return null
 
@@ -1697,6 +1703,7 @@ func _on_unit_destroyed(uid: int, _kid: int) -> void:
 	tile_grid.remove_planned_path(uid)
 	SoundManager.play("explosion", -2.0)
 	unit_renderer.queue_redraw()
+	FogOfWar.refresh()
 	initiative_bar.refresh_units.call_deferred()
 	_show_first_kill_narration(uid, _kid)
 
@@ -2263,6 +2270,7 @@ func _on_unit_step(_uid: int, _col: int, _row: int) -> void:
 	# 沙盘演示：单位每走一格刷新画面
 	unit_renderer.queue_redraw()
 	tile_grid.queue_redraw()
+	FogOfWar.refresh()
 
 
 func _on_unit_step_animation_requested(uid: int, from_col: int, from_row: int,
@@ -2274,3 +2282,10 @@ func _on_unit_step_animation_requested(uid: int, from_col: int, from_row: int,
 func _on_unit_move_completed(uid: int, _col: int, _row: int) -> void:
 	tile_grid.remove_planned_path(uid)
 	unit_renderer.queue_redraw()
+	FogOfWar.refresh()
+
+
+func _on_fog_visibility_updated() -> void:
+	unit_renderer.queue_redraw()
+	tile_grid.queue_redraw()
+	fog_renderer.queue_redraw()
