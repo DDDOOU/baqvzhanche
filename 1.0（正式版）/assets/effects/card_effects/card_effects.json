@@ -1,0 +1,124 @@
+{
+  "call_artillery": {
+    "texture": "res://assets/effects/card_effects/call_artillery_4f.png",
+    "frame_width": 128,
+    "frame_height": 128,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 2,
+    "area_height": 2,
+    "ground_ratio": 0.88
+  },
+  "blind_fire_barrage": {
+    "texture": "res://assets/effects/card_effects/blind_fire_barrage_4f.png",
+    "frame_width": 192,
+    "frame_height": 112,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 3,
+    "area_height": 3,
+    "ground_ratio": 0.91
+  },
+  "smoke_screen": {
+    "texture": "res://assets/effects/card_effects/smoke_screen_4f.png",
+    "frame_width": 256,
+    "frame_height": 128,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 4,
+    "area_height": 4,
+    "ground_ratio": 0.92,
+    "persistence": "smoke"
+  },
+  "sapper_mines": {
+    "texture": "res://assets/effects/card_effects/sapper_mines_4f.png",
+    "frame_width": 128,
+    "frame_height": 80,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 2,
+    "area_height": 1,
+    "ground_ratio": 0.91,
+    "persistence": "mines"
+  },
+  "coordinate_prediction": {
+    "texture": "res://assets/effects/card_effects/coordinate_prediction_4f.png",
+    "frame_width": 80,
+    "frame_height": 72,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.9
+  },
+  "fortify_position": {
+    "texture": "res://assets/effects/card_effects/fortify_position_4f.png",
+    "frame_width": 96,
+    "frame_height": 88,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.92
+  },
+  "sacrifice_charge": {
+    "texture": "res://assets/effects/card_effects/sacrifice_charge_4f.png",
+    "frame_width": 80,
+    "frame_height": 88,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.92
+  },
+  "power_cut": {
+    "texture": "res://assets/effects/card_effects/power_cut_4f.png",
+    "frame_width": 96,
+    "frame_height": 88,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.91
+  },
+  "reserve_deployment": {
+    "texture": "res://assets/effects/card_effects/reserve_deployment_4f.png",
+    "frame_width": 96,
+    "frame_height": 88,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.92
+  },
+  "false_report": {
+    "texture": "res://assets/effects/card_effects/false_report_4f.png",
+    "frame_width": 96,
+    "frame_height": 80,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.91
+  },
+  "emi_countermeasure": {
+    "texture": "res://assets/effects/card_effects/emi_countermeasure_4f.png",
+    "frame_width": 96,
+    "frame_height": 88,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.91
+  },
+  "radio_silence": {
+    "texture": "res://assets/effects/card_effects/radio_silence_4f.png",
+    "frame_width": 80,
+    "frame_height": 72,
+    "frames": 4,
+    "fps": 7.0,
+    "area_width": 1,
+    "area_height": 1,
+    "ground_ratio": 0.9
+  }
+}

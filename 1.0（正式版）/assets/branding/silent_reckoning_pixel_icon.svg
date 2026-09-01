@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" shape-rendering="crispEdges">
+  <!-- Pixel-vector redraw of the supplied radio icon: composition retained, style converted only. -->
+  <rect width="256" height="256" fill="#171716"/>
+  <path fill="#201c19" d="M8 0h240v8h8v240h-8v8H8v-8H0V8h8z"/>
+  <path fill="#4c382c" d="M16 8h224v8h8v224h-8v8H16v-8H8V16h8z"/>
+  <path fill="#7d6048" d="M24 16h208v8h8v208h-8v8H24v-8h-8V24h8zm8 16v192h192V32z"/>
+  <path fill="#332a25" d="M32 32h192v192H32z"/>
+  <path fill="#111718" d="M40 40h176v176H40z"/>
+  <path fill="#232827" d="M40 40h176v8H48v168h-8zm176 0h8v176h-8z"/>
+  <!-- frame rivets -->
+  <g fill="#b48d63"><rect x="28" y="28" width="10" height="10"/><rect x="218" y="28" width="10" height="10"/><rect x="28" y="218" width="10" height="10"/><rect x="218" y="218" width="10" height="10"/><rect x="28" y="76" width="8" height="8"/><rect x="220" y="76" width="8" height="8"/><rect x="28" y="172" width="8" height="8"/><rect x="220" y="172" width="8" height="8"/></g>
+  <g fill="#4a3329"><rect x="30" y="30" width="4" height="4"/><rect x="220" y="30" width="4" height="4"/><rect x="30" y="220" width="4" height="4"/><rect x="220" y="220" width="4" height="4"/><rect x="30" y="78" width="4" height="4"/><rect x="222" y="78" width="4" height="4"/><rect x="30" y="174" width="4" height="4"/><rect x="222" y="174" width="4" height="4"/></g>
+  <!-- faint technical engraving in the original's black insert -->
+  <g fill="#283231"><path d="M48 64h24v4H52v20h-4zM184 64h24v24h-4V68h-20zM48 168h4v20h20v4H48zM204 168h4v24h-24v-4h20z"/><path d="M64 48h4v12h20v4H64zm124 0h4v16h-4zm-4 12h16v4h-16zM64 204h24v4H64z"/></g>
+  <!-- red concentric signal ring: same central placement as source -->
+  <g fill="#57272a"><path d="M112 56h32v4h20v8h12v8h12v12h8v20h4v40h-4v20h-8v12h-12v8h-12v8h-20v4h-32v-4H92v-8H80v-8H68v-12h-8v-20h-4v-40h4V88h8V76h12V68h12v-8h20zM112 64H92v8H80v8H72v12h-8v20h-4v32h4v20h8v12h8v8h12v8h20v4h32v-4h20v-8h12v-8h8v-12h8v-20h4v-32h-4V92h-8V80h-8v-8h-12v-8h-20v-4z"/></g>
+  <g fill="#9a3937"><path d="M112 68h32v4h16v8h12v8h8v12h4v20h4v16h-4v20h-4v12h-8v8h-12v8h-16v4h-32v-4H96v-8H84v-8H76v-12h-4v-20h-4v-16h4v-20h4V88h8v-8h12v-8h16zM112 72H100v8H88v8h-8v12h-4v16h-4v24h4v16h4v12h8v8h12v8h16v4h24v-4h16v-8h12v-8h8v-12h4v-16h4v-24h-4v-16h-4V88h-8v-8h-12v-8h-16v-4z"/></g>
+  <!-- antenna and handle -->
+  <path fill="#0d1111" d="M120 48h8v36h-8z"/><rect x="120" y="40" width="8" height="8" fill="#8f8873"/><rect x="124" y="36" width="4" height="4" fill="#d4c99f"/>
+  <path fill="#252827" d="M112 76h32v4h8v20h-8V88h-32v12h-8V80h8z"/><path fill="#a39c86" d="M116 76h24v4h-24z"/>
+  <!-- central silver radio; original silhouette and control layout preserved -->
+  <path fill="#171b1b" d="M80 88h8v-4h80v4h8v8h8v96h-8v8h-8v8H88v-8h-8v-8h-8V96h8z"/>
+  <path fill="#817d70" d="M88 92h8v-4h64v4h8v8h8v84h-8v8h-8v8H96v-8h-8v-8h-8v-84h8z"/>
+  <path fill="#c8c4ae" d="M96 96h64v4h8v84h-8v8H96v-8h-8v-84h8z"/>
+  <path fill="#77776c" d="M96 100h64v4h4v80h-4v4H96v-4h-4v-80h4z"/>
+  <g fill="#a4a294"><rect x="96" y="100" width="20" height="4"/><rect x="92" y="108" width="4" height="20"/><rect x="156" y="108" width="8" height="8"/><rect x="96" y="184" width="16" height="4"/><rect x="148" y="184" width="12" height="4"/></g>
+  <g fill="#4d524e"><rect x="112" y="100" width="4" height="4"/><rect x="92" y="128" width="4" height="8"/><rect x="156" y="116" width="8" height="4"/><rect x="100" y="184" width="4" height="4"/><rect x="148" y="184" width="4" height="4"/></g>
+  <!-- upper tuning window -->
+  <path fill="#222928" d="M96 108h64v4h8v48h-8v4H96v-4h-8v-48h8z"/>
+  <path fill="#bec0ac" d="M100 112h56v4h8v40h-8v4h-56v-4h-8v-40h8z"/>
+  <path fill="#616a62" d="M100 120h56v8h-56zm0 20h56v8h-56z"/>
+  <g fill="#e0d9ba"><rect x="108" y="120" width="8" height="4"/><rect x="128" y="120" width="8" height="4"/><rect x="148" y="120" width="4" height="4"/><rect x="108" y="140" width="12" height="4"/><rect x="132" y="140" width="8" height="4"/></g>
+  <!-- two large source-style knobs and lower central control -->
+  <g><path fill="#242927" d="M88 164h24v4h8v24h-8v4H88v-4h-8v-24h8z"/><path fill="#b8b29b" d="M88 172h24v16H88z"/><path fill="#636458" d="M96 172h8v16h-8z"/><rect x="88" y="176" width="4" height="8" fill="#e0d4ac"/></g>
+  <g><path fill="#242927" d="M144 164h24v4h8v24h-8v4h-24v-4h-8v-24h8z"/><path fill="#b8b29b" d="M144 172h24v16h-24z"/><path fill="#636458" d="M152 172h8v16h-8z"/><rect x="164" y="176" width="4" height="8" fill="#e0d4ac"/></g>
+  <rect x="120" y="172" width="16" height="16" fill="#292d2a"/><rect x="124" y="176" width="8" height="8" fill="#7c7869"/>
+  <!-- retained aged-metal glints / rust chips -->
+  <g fill="#e2cf9c"><rect x="80" y="104" width="4" height="12"/><rect x="172" y="112" width="4" height="12"/><rect x="104" y="92" width="12" height="4"/><rect x="140" y="92" width="8" height="4"/></g>
+  <g fill="#7d3d2e"><rect x="44" y="92" width="8" height="4"/><rect x="52" y="196" width="4" height="8"/><rect x="204" y="132" width="4" height="8"/><rect x="188" y="48" width="12" height="4"/><rect x="44" y="44" width="8" height="4"/></g>
+</svg>

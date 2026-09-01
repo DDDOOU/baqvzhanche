@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://eoa0nm5yj23e"]
+
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_2x2.tscn" id="1"]
+[ext_resource type="Texture2D" uid="uid://cqd48yxwtr07q" path="res://assets/outdoor_buildings_64/infrastructure/infrastructure_10.png" id="2_mfmnv"]
+
+[node name="道路检查站_RoadCheckpoint" unique_id=1558168220 instance=ExtResource("1")]
+building_category = 1
+building_index = 10
+building_name = "道路检查站 / Road Checkpoint"
+
+[node name="Visual" parent="." index="0"]
+texture = ExtResource("2_mfmnv")

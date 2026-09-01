@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/levels/LevelData.gd" id="1_ld"]
+
+[resource]
+script = ExtResource("1_ld")
+level_id = 0
+level_name = "边境晨雾"
+act_number = 1
+designer_intent = "第一幕开场/教学关/5分钟上手。让玩家熟悉「60秒计划+30秒沙盘」循环、坐标输入、基础侦察、士气概念；北约AI采用“速胜”倾向，给玩家压迫感但不至于崩盘。"
+briefing = "1987 年 9 月 14 日 04:30，雾。西部军区第 29 摩步师前沿哨所报告：「边境出现机械化纵队，未识别。」列夫森科上校在指挥帐篷里第一次面对北约的「铁砧」先遣营。他必须在晨雾消散前判明敌情，同时不能让前沿步兵班白白送命。"
+outro_narration = "你守住了第一节车厢。但你已经听到铁轨在响。"
+map_width = 40
+map_height = 45
+max_turns = 8
+emi_base_level = 0.0
+weather = "fog"
+weather_vision_penalty = 3
+default_vision = 3
+fog_of_war = true
+primary_objective = "守住3个VP格中至少2个至第8回合结束。"
+hidden_objective = "未被北约侦察发现任何己方单位的位置。"
+failure_condition = "华约指挥中心被摧毁 / 第8回合己方VP < 2。"
+victory_condition = "守住至少2个VP：胜利+3行动点，惨胜+1；惨败进入第2关但士气-10。"
+intel_a = "北部山地有雾，能见度低。"
+intel_b = "公路两侧疑有装甲目标。"
+intel_c = "未识别机型/旋翼声。"
