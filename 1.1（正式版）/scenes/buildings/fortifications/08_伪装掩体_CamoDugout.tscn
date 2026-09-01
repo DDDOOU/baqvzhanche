@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_2x2.tscn" id="1"]
+[node name="伪装掩体_CamouflagedDugout" instance=ExtResource("1")]
+building_index = 8
+building_name = "伪装掩体 / Camouflaged Dugout"
+visual_scale = Vector2(1, 1)

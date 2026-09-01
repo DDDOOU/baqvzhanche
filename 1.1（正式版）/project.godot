@@ -1,0 +1,90 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Silent_Reckoning_1987"
+config/description="静默行动1987 - 回合制战术战棋游戏"
+config/version="1.1.0"
+config/tags=PackedStringArray("strategy", "wargame", "hex-grid", "turn-based")
+run/main_scene="res://scenes/MainMenu.tscn"
+config/features=PackedStringArray("4.7")
+config/icon="res://assets/branding/silent_reckoning_pixel_icon.svg"
+
+[autoload]
+
+CardDatabase="*res://scripts/cards/CardDatabase.gd"
+UnitDatabase="*res://scripts/units/UnitDatabase.gd"
+LevelDatabase="*res://scripts/levels/LevelDatabase.gd"
+GridManager="*res://scripts/core/GridManager.gd"
+LineOfSight="*res://scripts/combat/LineOfSight.gd"
+FogOfWar="*res://scripts/core/FogOfWar.gd"
+EMISystem="*res://scripts/core/EMISystem.gd"
+MoraleSystem="*res://scripts/core/MoraleSystem.gd"
+CampaignManager="*res://scripts/core/CampaignManager.gd"
+CardSystem="*res://scripts/cards/CardSystem.gd"
+CombatSystem="*res://scripts/combat/CombatSystem.gd"
+MovementSystem="*res://scripts/movement/MovementSystem.gd"
+TurnManager="*res://scripts/core/TurnManager.gd"
+NATOAI="*res://scripts/ai/NATOAI.gd"
+GameManager="*res://scripts/core/GameManager.gd"
+BattleLog="*res://scripts/core/BattleLog.gd"
+VictoryManager="*res://scripts/core/VictoryManager.gd"
+SoundManager="*res://scripts/audio/SoundManager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/unit_config_sync/plugin.cfg")
+
+[input]
+
+ui_click_left={
+"deadzone": 0.5,
+"events": [{
+"id": "mouse_left_button"
+}]
+}
+ui_click_right={
+"deadzone": 0.5,
+"events": [{
+"id": "mouse_right_button"
+}]
+}
+plan_confirm={
+"deadzone": 0.5,
+"events": [{
+"id": "key_enter"
+}]
+}
+plan_cancel={
+"deadzone": 0.5,
+"events": [{
+"id": "key_escape"
+}, null]
+}
+toggle_card_panel={
+"deadzone": 0.5,
+"events": [{
+"id": "key_tab"
+}]
+}
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true
