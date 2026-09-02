@@ -1,0 +1,72 @@
+{
+  "scene": "res://scenes/levels/terrain_test_10.tscn",
+  "width": 36,
+  "height": 28,
+  "base": "tile.grass",
+  "seed": 20260826,
+  "auto_edges": true,
+  "operations": [
+    {
+      "name": "西北裸土地",
+      "command": "map.rect",
+      "terrain": "tile.soil",
+      "from": [2, 2],
+      "to": [9, 7]
+    },
+    {
+      "name": "西南密林",
+      "command": "map.ellipse",
+      "terrain": "tile.forest",
+      "center": [8, 19],
+      "radius": [6, 5]
+    },
+    {
+      "name": "东北花草地",
+      "command": "map.ellipse",
+      "terrain": "tile.brush",
+      "center": [30, 5],
+      "radius": [4, 3]
+    },
+    {
+      "name": "北部稀疏灌丛",
+      "command": "map.scatter",
+      "terrain": "tile.brush",
+      "rect": [13, 2, 10, 7],
+      "density": 0.32
+    },
+    {
+      "name": "北部岩石山脊",
+      "command": "map.polygon",
+      "terrain": "tile.rock",
+      "points": [[11, 0], [22, 0], [25, 4], [20, 7], [13, 5]]
+    },
+    {
+      "name": "东部独立岩丘",
+      "command": "map.ellipse",
+      "terrain": "tile.rock",
+      "center": [30, 12],
+      "radius": [4, 3]
+    },
+    {
+      "name": "东南深水湖泊",
+      "command": "map.ellipse",
+      "terrain": "tile.water",
+      "center": [28, 21],
+      "radius": [6, 5]
+    },
+    {
+      "name": "南部浅水河流",
+      "command": "map.path",
+      "terrain": "tile.water",
+      "points": [[15, 27], [16, 24], [17, 21], [18, 18], [20, 15]],
+      "width": 2
+    },
+    {
+      "name": "横贯碎石公路",
+      "command": "map.path",
+      "terrain": "tile.road",
+      "points": [[0, 11], [10, 10], [20, 10], [28, 9], [35, 8]],
+      "width": 2
+    }
+  ]
+}
